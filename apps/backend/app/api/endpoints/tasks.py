@@ -301,6 +301,53 @@ async def select_offer(
         print(f"DEBUG: Error in task_service.select_offer: {e}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
+@router.post("/{task_id}/offers/{offer_id}/reject")
+async def reject_offer(
+    task_id: int,
+    offer_id: int,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db)
+):
+    """Client rejects an offer."""
+    from app.models.models import MessageType
+    
+    # Verify ownership
+    task = await db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.client_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get offer
+    offer = await db.get(TaskOffer, offer_id)
+    if not offer or offer.task_id != task_id:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    # Update offer status
+    offer.status = OfferStatus.DECLINED
+    db.add(offer)
+    await db.commit()
+    
+    # Post rejection message to chat
+    thread_result = await db.execute(select(TaskThread).where(
+        TaskThread.task_id == task_id,
+        TaskThread.helper_id == offer.helper_id
+    ))
+    thread = thread_result.scalars().first()
+    
+    if thread:
+        rejection_message = TaskMessage(
+            thread_id=thread.id,
+            sender_id=current_user.id,
+            body="❌ Your offer was declined.",
+            type=MessageType.SYSTEM,
+            payload={"offer_id": offer.id, "action": "rejected"}
+        )
+        db.add(rejection_message)
+        await db.commit()
+    
+    return {"status": "rejected"}
+
 # --- CHAT ---
 
 @router.post("/{task_id}/threads/{helper_id}/messages", response_model=TaskMessageResponse)
