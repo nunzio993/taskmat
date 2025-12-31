@@ -145,12 +145,16 @@ class TaskMessage {
   final int senderId;
   final String body;
   final DateTime createdAt;
+  final String type;
+  final Map<String, dynamic> payload;
 
   TaskMessage({
     required this.id,
     required this.senderId,
     required this.body,
     required this.createdAt,
+    this.type = 'text',
+    this.payload = const {},
   });
 
   factory TaskMessage.fromJson(Map<String, dynamic> json) {
@@ -159,6 +163,8 @@ class TaskMessage {
       senderId: json['sender_id'],
       body: json['body'],
       createdAt: DateTime.parse(json['created_at']),
+      type: json['type'] ?? 'text',
+      payload: json['payload'] ?? {},
     );
   }
 }

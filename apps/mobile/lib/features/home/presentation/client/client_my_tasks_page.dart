@@ -270,16 +270,15 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
        child: Column(
          crossAxisAlignment: CrossAxisAlignment.start,
          children: [
-            // Edit Mode if POSTED
-            if (task.status == 'posted') 
-              _EditTaskSection(task: task),
+            // Details Section (Viewing + Editing if Allowed)
+            _EditTaskSection(task: task),
               
             const SizedBox(height: 24),
             // Status is now inside the card
             
             // Offers & Chat
             // Offers & Chat
-            if (task.status == 'posted') ...[
+            if (['posted', 'assigned', 'in_progress'].contains(task.status)) ...[
                _ChatThreadsSection(taskId: task.id),
                const SizedBox(height: 24),
                _OffersSection(task: task),
@@ -388,24 +387,25 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
                      ],
                    ),
                  ),
-                 InkWell(
-                   onTap: () => setState(() => _isEditing = true),
-                   borderRadius: BorderRadius.circular(8),
-                   child: Container(
-                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                     decoration: BoxDecoration(
-                       color: Colors.blue.shade50,
-                       borderRadius: BorderRadius.circular(8),
+                 if (widget.task.status == 'posted')
+                   InkWell(
+                     onTap: () => setState(() => _isEditing = true),
+                     borderRadius: BorderRadius.circular(8),
+                     child: Container(
+                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                       decoration: BoxDecoration(
+                         color: Colors.blue.shade50,
+                         borderRadius: BorderRadius.circular(8),
+                       ),
+                       child: Row(
+                         children: [
+                           Icon(Icons.edit, size: 16, color: Colors.blue.shade700),
+                           const SizedBox(width: 6),
+                           Text('Edit', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
+                         ],
+                       ),
                      ),
-                     child: Row(
-                       children: [
-                         Icon(Icons.edit, size: 16, color: Colors.blue.shade700),
-                         const SizedBox(width: 6),
-                         Text('Edit', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
-                       ],
-                     ),
-                   ),
-                 )
+                   )
                ],
              ),
              const Divider(height: 32),

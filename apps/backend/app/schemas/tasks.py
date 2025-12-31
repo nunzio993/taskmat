@@ -40,6 +40,12 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     price_cents: Optional[int] = None
     status: Optional[str] = None
+    category: Optional[str] = None
+    urgency: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
     version: Optional[int] = None # For optimistic locking check
 
 class TaskOut(TaskBase):

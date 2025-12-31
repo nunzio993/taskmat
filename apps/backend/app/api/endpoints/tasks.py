@@ -335,7 +335,7 @@ def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None) -> schemas
 @router.patch("/{task_id}", response_model=schemas.TaskOut)
 async def update_task(
     task_id: int,
-    task_in: schemas.TaskCreate,
+    task_in: schemas.TaskUpdate,
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
@@ -354,18 +354,25 @@ async def update_task(
         raise HTTPException(status_code=400, detail="Cannot edit task that is not in POSTED state")
         
     # Update Fields
-    task.title = task_in.title
-    task.description = task_in.description
-    task.category = task_in.category
-    task.price_cents = task_in.price_cents
-    task.urgency = task_in.urgency
+    if task_in.title is not None:
+        task.title = task_in.title
+    if task_in.description is not None:
+        task.description = task_in.description
+    if task_in.category is not None:
+        task.category = task_in.category
+    if task_in.price_cents is not None:
+        task.price_cents = task_in.price_cents
+    if task_in.urgency is not None:
+        task.urgency = task_in.urgency
     
     # Update location if changed
-    if task_in.lat and task_in.lon:
+    if task_in.lat is not None and task_in.lon is not None:
          task.location = f'POINT({task_in.lon} {task_in.lat})'
          
-    task.address_line = task_in.address_line
-    task.city = task_in.city
+    if task_in.address_line is not None:
+        task.address_line = task_in.address_line
+    if task_in.city is not None:
+        task.city = task_in.city
     
     # Increment Revision
     task.version += 1

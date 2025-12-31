@@ -51,7 +51,12 @@ class ClientOffersList extends StatelessWidget {
         final offer = offers[index];
         final isDeclined = offer.status == 'declined';
         final isAccepted = offer.status == 'accepted';
+        final isTaskAssigned = ['assigned', 'in_progress', 'completed'].contains(task.status);
         
+        // If task is assigned, but this offer is NOT the accepted one, we treat it as effectively declined/ignored UI-wise
+        // effectively disabling the "Accept" button.
+        final showActions = !isAccepted && !isDeclined && !isTaskAssigned;
+
         return Card(
            elevation: 0,
            shape: RoundedRectangleBorder(
@@ -125,7 +130,7 @@ class ClientOffersList extends StatelessWidget {
                        ],
                      ),
                    )
-                 else
+                 else if (showActions)
                    Row(
                      children: [
                        Expanded(
@@ -153,6 +158,22 @@ class ClientOffersList extends StatelessWidget {
                          ),
                        ),
                      ],
+                   )
+                 else
+                   // Task is assigned (to someone else), show simple Chat button or text?
+                   // User said "rendere non accettabili le altre offerte". 
+                   // Let's show "Chat" but no Accept/Decline.
+                   Row(
+                     children: [
+                        Expanded(
+                         child: OutlinedButton(
+                           onPressed: () {
+                             onOpenChat?.call(offer.helperId);
+                           },
+                           child: const Text('Chat'),
+                         ),
+                       ),
+                     ]
                    ),
                ],
              ),

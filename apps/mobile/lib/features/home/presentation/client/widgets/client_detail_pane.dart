@@ -468,6 +468,92 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
                    itemBuilder: (context, index) {
                      final msg = messages[index];
                      final isMe = msg.senderId == currentUser?.id;
+                     
+                     // Custom rendering for Offer Updates
+                     if (msg.type == 'offer_update') {
+                        final priceCents = msg.payload['price_cents'];
+                        final offerId = msg.payload['offer_id'];
+                        final isClient = ref.read(authProvider).value?.role == 'client';
+
+                        return Align(
+                          alignment: Alignment.center,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.all(16),
+                            width: 250,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.blue.shade100),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                Text('New Offer', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 8),
+                                Text('€${(priceCents/100).toStringAsFixed(2)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 12),
+                                Text(msg.body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+                                const SizedBox(height: 12),
+                                if (isClient)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      // We need the full offer object to accept/decline. 
+                                      // If we don't have it in context, we might need to fetch it or cheat.
+                                      // Currently `ChatDialogContent` has `widget.offer` which MIGHT be the current one.
+                                      // But if there are multiple offers or history, `widget.offer` is likely just one of them.
+                                      // ideally we pass a callback that takes ID.
+                                      // AND we need to know if this offer is still valid (pending). 
+                                      // For now, let's assume if it's rendered, we can try to accept it.
+                                      
+                                      // Using `widget.onDeclineOffer` which takes `TaskOffer`. We don't have `TaskOffer` object here easily.
+                                      // Workaround: Create a fake TaskOffer with just ID? Or change callback signature?
+                                      // Changing callback signature is better but affects other code.
+                                      // Let's create a partial TaskOffer.
+                                      
+                                      OutlinedButton(
+                                        onPressed: () {
+                                          final tempOffer = TaskOffer(id: offerId, taskId: widget.taskId, helperId: msg.senderId, priceCents: priceCents, message: "", status: 'submitted');
+                                          widget.onDeclineOffer?.call(tempOffer);
+                                          Navigator.pop(context);
+                                        },
+                                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 12)),
+                                        child: const Text('Decline'),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          final tempOffer = TaskOffer(id: offerId, taskId: widget.taskId, helperId: msg.senderId, priceCents: priceCents, message: "", status: 'submitted');
+                                          widget.onAcceptOffer?.call(tempOffer);
+                                          Navigator.pop(context);
+                                        },
+                                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
+                                        child: const Text('Accept'),
+                                      ),
+                                    ],
+                                  )
+                              ],
+                            ),
+                          ),
+                        );
+                     } else if (msg.type == 'system') {
+                        return Align(
+                           alignment: Alignment.center,
+                           child: Container(
+                             margin: const EdgeInsets.symmetric(vertical: 8),
+                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                             decoration: BoxDecoration(
+                               color: Colors.grey.shade200,
+                               borderRadius: BorderRadius.circular(12),
+                             ),
+                             child: Text(msg.body, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                           ),
+                        );
+                     }
+
                      return Align(
                         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
