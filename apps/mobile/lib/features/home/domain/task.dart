@@ -13,6 +13,7 @@ class Task {
   final int? clientId;
   final UserProfile? client;
   final int? selectedOfferId;
+  final int version;
   final List<TaskProof> proofs;
   final List<TaskOffer> offers;
 
@@ -30,6 +31,7 @@ class Task {
     this.clientId,
     this.client,
     this.selectedOfferId,
+    this.version = 1,
     this.proofs = const [],
     this.offers = const [],
   });
@@ -49,6 +51,7 @@ class Task {
       clientId: json['client_id'],
       client: json['client'] != null ? UserProfile.fromJson(json['client']) : null,
       selectedOfferId: json['selected_offer_id'],
+      version: json['version'] ?? 1,
       proofs: (json['proofs'] as List?)?.map((e) => TaskProof.fromJson(e)).toList() ?? [],
       offers: (json['offers'] as List?)?.map((e) => TaskOffer.fromJson(e)).toList() ?? [],
     );

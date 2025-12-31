@@ -34,15 +34,19 @@ async def get_or_create_thread(
         raise HTTPException(status_code=404, detail="Task not found")
 
     # Determine helper_id and client_id
+    # Determine helper_id and client_id
     if current_user.role == 'helper':
         helper_id = current_user.id
         client_id = task.client_id
+        
+        # Guard: Prevent self-chat if user is somehow both client and helper (unlikely but safe)
+        if helper_id == client_id:
+             raise HTTPException(status_code=400, detail="You cannot chat with yourself.")
+                 
     else:
-        # If client calls this, they must be the task owner, but who is the helper?
-        # This endpoint is specifically for "Starting a chat" which usually implies selecting a target.
-        # If Client calls, they should probably pick a helper from an offer?
-        # For MVP, let's assume this is the "Helper contacts Client" endpoint.
-        raise HTTPException(status_code=400, detail="Only helpers can initiate chat via this endpoint")
+        # Client calling this?
+        # This endpoint is specifically for "Starting a chat" behaving as the 'active' side (Helper).
+        raise HTTPException(status_code=403, detail="Only helpers can initiate chat via this endpoint")
 
     # Check existence
     query = select(TaskThread).where(

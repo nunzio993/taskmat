@@ -51,7 +51,7 @@ class AppTheme {
         textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16),
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: surfaceLight,
       elevation: 2,
       shadowColor: Colors.black12,
@@ -111,7 +111,7 @@ class AppTheme {
         textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16),
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: surfaceDark,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

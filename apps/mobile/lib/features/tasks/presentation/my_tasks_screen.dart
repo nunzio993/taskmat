@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../home/presentation/client/client_my_tasks_page.dart';
 import '../../home/application/tasks_provider.dart';
 import '../../home/domain/task.dart';
 import '../../../core/widgets/task_card.dart';
@@ -10,37 +11,7 @@ class MyTasksScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tasksAsync = ref.watch(myCreatedTasksProvider);
-
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('My Tasks'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Active'),
-              Tab(text: 'History'),
-            ],
-          ),
-        ),
-        body: tasksAsync.when(
-          data: (tasks) {
-            final active = tasks.where((t) => t.status != 'completed' && t.status != 'cancelled').toList();
-            final completed = tasks.where((t) => t.status == 'completed' || t.status == 'cancelled').toList();
-
-            return TabBarView(
-              children: [
-                _TaskList(tasks: active, emptyMessage: 'No active tasks.'),
-                _TaskList(tasks: completed, emptyMessage: 'No completed tasks.'),
-              ],
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(child: Text('Error: $err')),
-        ),
-      ),
-    );
+    return const ClientMyTasksPage();
   }
 }
 

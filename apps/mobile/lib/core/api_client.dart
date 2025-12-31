@@ -12,7 +12,7 @@ Dio apiClient(Ref ref) {
   // Use localhost for Web/iOS Simulator
   // We can add platform detection later. For Web default (localhost) works.
   final dio = Dio(BaseOptions(
-    baseUrl: 'http://127.0.0.1:8000', 
+    baseUrl: 'http://localhost:8000', 
     connectTimeout: const Duration(seconds: 5),
     receiveTimeout: const Duration(seconds: 3),
   ));

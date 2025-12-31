@@ -178,6 +178,50 @@ def _to_task_out(task: Task) -> schemas.TaskOut:
         offers=[schemas.TaskOfferResponse.from_orm(o) for o in task.offers] if 'offers' in task.__dict__ else []
     )
 
+@router.patch("/{task_id}", response_model=schemas.TaskOut)
+async def update_task(
+    task_id: int,
+    task_in: schemas.TaskCreate,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db)
+):
+    # Verify ownership
+    result = await db.execute(select(Task).where(Task.id == task_id).options(selectinload(Task.proofs)))
+    task = result.scalars().first()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    if task.client_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    # Guard: Editing allowed only if POSTED
+    if task.status != TaskStatus.POSTED:
+        raise HTTPException(status_code=400, detail="Cannot edit task that is not in POSTED state")
+        
+    # Update Fields
+    task.title = task_in.title
+    task.description = task_in.description
+    task.category = task_in.category
+    task.price_cents = task_in.price_cents
+    task.urgency = task_in.urgency
+    
+    # Update location if changed
+    if task_in.lat and task_in.lon:
+         task.location = f'POINT({task_in.lon} {task_in.lat})'
+         
+    task.address_line = task_in.address_line
+    task.city = task_in.city
+    
+    # Increment Revision
+    task.version += 1
+    
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+    
+    return _to_task_out(task)
+
 # --- OFFERS ---
 
 @router.post("/{task_id}/offers", response_model=TaskOfferResponse)

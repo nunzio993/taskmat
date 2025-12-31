@@ -2,8 +2,11 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 
 # 0. Pulizia Porte
-$port = 3000
-Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -ne 0 } | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+$ports = 3000, 8000
+$ports | ForEach-Object {
+    $p = $_
+    Get-NetTCPConnection -LocalPort $p -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -ne 0 } | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+}
 
 # 1. Avvia Docker
 Set-Location "$ProjectRoot"
@@ -16,4 +19,4 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$backendPath'
 # 3. Avvia Flutter
 $env:Path += ";C:\src\flutter\bin"
 Set-Location "$ProjectRoot\apps\mobile"
-flutter run -d web-server --web-port 3000
+C:\src\flutter\bin\flutter.bat run -d web-server --web-port 3000

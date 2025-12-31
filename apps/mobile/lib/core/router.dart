@@ -11,6 +11,7 @@ import '../features/auth/application/auth_provider.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/tasks/presentation/task_details_screen.dart';
+import '../features/home/presentation/chat_screen.dart';
 import '../features/tasks/presentation/create_task_screen.dart';
 import '../features/profile/presentation/helper/helper_registration_screen.dart';
 import '../features/profile/presentation/saved_addresses_screen.dart';
@@ -99,6 +100,17 @@ GoRouter router(Ref ref) {
           GoRoute(path: '/profile/payments', builder: (context, state) => const PaymentMethodsScreen()),
           GoRoute(path: '/profile/notifications', builder: (context, state) => const NotificationSettingsScreen()),
           GoRoute(path: '/profile/help', builder: (context, state) => const HelpCenterScreen()),
+          GoRoute(
+            path: '/chat',
+            builder: (context, state) {
+              final extras = state.extra as Map<String, dynamic>;
+              return ChatScreen(
+                taskId: extras['taskId'],
+                helperId: extras['helperId'],
+                title: extras['title'],
+              );
+            },
+          ),
         ],
       ),
     ],

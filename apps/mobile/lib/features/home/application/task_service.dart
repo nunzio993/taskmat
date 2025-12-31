@@ -13,6 +13,14 @@ class TaskService extends _$TaskService {
   @override
   FutureOr<void> build() {}
 
+  // --- TASKS ---
+  
+  Future<Task> updateTask(int taskId, Map<String, dynamic> data) async {
+    final dio = ref.read(apiClientProvider);
+    final response = await dio.patch('/tasks/$taskId', data: data);
+    return Task.fromJson(response.data);
+  }
+
   // --- OFFERS ---
   
   Future<List<TaskOffer>> getOffers(int taskId) async {

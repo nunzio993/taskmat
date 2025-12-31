@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../auth/application/auth_provider.dart';
 import 'helper/helper_dashboard_screen.dart';
-import 'client/client_dashboard_screen.dart';
+import 'client/client_my_tasks_page.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -60,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (isHelper) {
       return HelperDashboardScreen(userLocation: _currentLocation);
     } else {
-      return ClientDashboardScreen(userLocation: _currentLocation);
+      return const ClientMyTasksPage();
     }
   }
 }
