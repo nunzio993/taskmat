@@ -37,12 +37,8 @@ class _ClientDashboardScreenState extends ConsumerState<ClientDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // For clients, we might need a different provider or filter 'myTasks'.
-    // Assuming nearbyTasksProvider is generic enough or we create 'myTasksProvider'.
-    // For now, let's use nearbyTasksProvider but in real app clients see THEIR tasks.
-    // Let's assume we filter locally for now or need a new provider.
-    // Ideally Ref: `myTasksProvider`. Using `nearbyTasksProvider` as placeholder.
-    final myTasksAsync = ref.watch(nearbyTasksProvider); // TODO: Switch to myTasksProvider
+    // For clients, show their created tasks (with offers loaded via /tasks/created endpoint)
+    final myTasksAsync = ref.watch(myCreatedTasksProvider);
     
     final width = MediaQuery.of(context).size.width;
     final isSplitView = width > 900;

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../features/auth/application/auth_provider.dart';
 
 part 'api_client.g.dart';
 
@@ -28,8 +29,19 @@ Dio apiClient(Ref ref) {
       }
     return handler.next(options);
     },
-    onError: (DioException e, handler) {
+    onError: (DioException e, handler) async {
       print('API Error: ${e.message} ${e.response?.statusCode}');
+      if (e.response?.statusCode == 401) {
+        // Token expired or invalid
+        // We use provider container to access auth provider and logout
+        // Since we are inside a provider, we can use 'ref' captured in closure
+        try {
+          // Avoid awaiting execution loop if we are already in build phase (unlikely here as it is async callback)
+          await ref.read(authProvider.notifier).logout();
+        } catch (err) {
+          print('Error during auto-logout: $err');
+        }
+      }
       return handler.next(e);
     },
   ));

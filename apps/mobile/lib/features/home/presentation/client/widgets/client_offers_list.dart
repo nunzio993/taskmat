@@ -130,8 +130,11 @@ class ClientOffersList extends StatelessWidget {
                      children: [
                        Expanded(
                          child: OutlinedButton(
-                           onPressed: () => onOpenChat?.call(offer.helperId),
-                           child: const Text('Chat'),
+                           onPressed: () {
+                             print('DEBUG: Chat button pressed for helper ${offer.helperId}');
+                             onOpenChat?.call(offer.helperId);
+                           },
+                           child: const Text('Chat Now'),
                          ),
                        ),
                        const SizedBox(width: 8),

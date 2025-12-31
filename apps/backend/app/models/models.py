@@ -74,7 +74,7 @@ class Task(Base):
     client = relationship("User", back_populates="tasks_created")
     selected_offer = relationship("TaskOffer", foreign_keys=[selected_offer_id])
     
-    offers = relationship("TaskOffer", back_populates="task", primaryjoin="Task.id==TaskOffer.task_id")
+    offers = relationship("TaskOffer", back_populates="task", foreign_keys="[TaskOffer.task_id]")
     threads = relationship("TaskThread", back_populates="task")
     proofs = relationship("TaskProof", back_populates="task")
     

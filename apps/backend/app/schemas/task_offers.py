@@ -22,6 +22,11 @@ class TaskOfferResponse(TaskOfferBase):
     status: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    # Helper Details
+    helper_name: Optional[str] = None
+    helper_avatar_url: Optional[str] = None
+    helper_rating: Optional[float] = None
 
     class Config:
         from_attributes = True

@@ -223,7 +223,10 @@ class ClientDetailPane extends ConsumerWidget {
                   ],
                 ),
                 trailing: const Icon(Icons.chat_bubble_outline),
-                onTap: () => _showChatDialog(context, thread),
+                onTap: () {
+                  final offer = task.offers.where((o) => o.helperId == thread.helperId).firstOrNull;
+                  _showChatDialog(context, ref, thread, offer);
+                },
               ),
             );
           }).toList(),
@@ -232,12 +235,18 @@ class ClientDetailPane extends ConsumerWidget {
     );
   }
 
-  void _showChatDialog(BuildContext context, ChatThread thread) {
+  void _showChatDialog(BuildContext context, WidgetRef ref, ChatThread thread, TaskOffer? offer) {
     showDialog(
       context: context,
       builder: (_) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: _ChatDialogContent(thread: thread),
+        child: ChatDialogContent(
+          thread: thread,
+          taskId: task.id,
+          offer: offer,
+          onAcceptOffer: (o) => _acceptOffer(context, ref, o),
+          onDeclineOffer: (o) => _declineOffer(context, ref, o),
+        ),
       ),
     );
   }
@@ -259,19 +268,51 @@ class ClientDetailPane extends ConsumerWidget {
   }
 
   void _openChatWithHelper(BuildContext context, WidgetRef ref, int helperId) async {
-    // Find or create thread with this helper
-    final threadsAsync = ref.read(taskThreadsProvider(task.id));
-    threadsAsync.whenData((threads) {
-      final thread = threads.where((t) => t.helperId == helperId).firstOrNull;
+    print('DEBUG: _openChatWithHelper called with helperId=$helperId, taskId=${task.id}');
+    try {
+      // Wait for threads to load
+      print('DEBUG: Loading threads...');
+      final threads = await ref.read(taskThreadsProvider(task.id).future);
+      print('DEBUG: Loaded ${threads.length} threads');
+      var thread = threads.where((t) => t.helperId == helperId).firstOrNull;
+      
+      if (thread == null) {
+        print('DEBUG: No thread found locally for helper $helperId, creating one...');
+        try {
+          thread = await ref.read(chatServiceProvider).getOrCreateThreadAsClient(task.id, helperId);
+          // Refresh the list provider so it appears there too
+          ref.invalidate(taskThreadsProvider(task.id));
+        } catch (e) {
+          print('DEBUG: Failed to create thread: $e');
+        }
+      }
+      
       if (thread != null) {
-        _showChatDialog(context, thread);
+        print('DEBUG: Found/Created thread for helper $helperId, opening dialog');
+        // Find the offer from this helper (if any)
+        final offer = task.offers.where((o) => o.helperId == helperId).firstOrNull;
+        print('DEBUG: Offer found? ${offer != null}');
+        if (context.mounted) {
+          _showChatDialog(context, ref, thread, offer);
+        }
       } else {
-        // If no thread exists yet, we could create one or show a message
+        print('DEBUG: Still no thread for helper $helperId');
+        // If no thread exists yet, show a message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unable to start chat with this helper.')),
+          );
+        }
+      }
+    } catch (e, st) {
+      print('DEBUG: Error in _openChatWithHelper: $e');
+      print('DEBUG: Stack trace: $st');
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No chat thread with this helper yet.')),
+          SnackBar(content: Text('Error loading chat: $e')),
         );
       }
-    });
+    }
   }
 
   void _acceptOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
@@ -309,16 +350,27 @@ class ClientDetailPane extends ConsumerWidget {
   }
 }
 
-class _ChatDialogContent extends ConsumerStatefulWidget {
+class ChatDialogContent extends ConsumerStatefulWidget {
   final ChatThread thread;
+  final int taskId;
+  final TaskOffer? offer;
+  final Function(TaskOffer)? onAcceptOffer;
+  final Function(TaskOffer)? onDeclineOffer;
 
-  const _ChatDialogContent({required this.thread});
+  const ChatDialogContent({
+    super.key, 
+    required this.thread, 
+    required this.taskId,
+    this.offer,
+    this.onAcceptOffer,
+    this.onDeclineOffer,
+  });
 
   @override
-  ConsumerState<_ChatDialogContent> createState() => _ChatDialogContentState();
+  ConsumerState<ChatDialogContent> createState() => _ChatDialogContentState();
 }
 
-class _ChatDialogContentState extends ConsumerState<_ChatDialogContent> {
+class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
   final TextEditingController _controller = TextEditingController();
 
   void _sendMessage() async {
@@ -349,11 +401,57 @@ class _ChatDialogContentState extends ConsumerState<_ChatDialogContent> {
              child: Row(
                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                children: [
-                 const Text('Q&A', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                 Text('Chat with ${widget.thread.helperName ?? "Helper"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                ],
              ),
           ),
+          
+          // Offer Action Bar (if offer exists and is pending)
+          if (widget.offer != null && widget.offer!.status == 'submitted')
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Current Offer', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text(
+                          '€${(widget.offer!.priceCents / 100).toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: () {
+                      widget.onDeclineOffer?.call(widget.offer!);
+                      Navigator.pop(context);
+                    },
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('Decline'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      widget.onAcceptOffer?.call(widget.offer!);
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Accept'),
+                  ),
+                ],
+              ),
+            ),
           
           // Messages
           Expanded(

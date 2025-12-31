@@ -14,44 +14,55 @@ router = APIRouter()
 @router.post("/tasks/{task_id}/thread", response_model=schemas.TaskThreadResponse)
 async def get_or_create_thread(
     task_id: int,
+    helper_id: int = None, # Optional query param, required if client
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
     """
-    Helper only: Get existing thread or create a new one for a task.
+    Get existing thread or create a new one for a task.
+    - Helper: Auto-determines client_id from task.
+    - Client: Must provide helper_id query param to specify which helper to chat with.
     """
-    if current_user.role != 'helper':
-        # Clients don't initiate threads usually in this flow, but if they do, logic is similar?
-        # Requirement: "Helper ho iniziato una chat". Helper initiates.
-        # But maybe client can too? For now restrict to helper or allow both if valid.
-        # Let's assume Helper initiates Pre-assignment.
-        pass
-
-    # Fetch Task to get client_id
+    # Fetch Task
     task_result = await db.execute(select(Task).where(Task.id == task_id))
     task = task_result.scalars().first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Determine helper_id and client_id
-    # Determine helper_id and client_id
-    if current_user.role == 'helper':
-        helper_id = current_user.id
-        client_id = task.client_id
-        
-        # Guard: Prevent self-chat if user is somehow both client and helper (unlikely but safe)
-        if helper_id == client_id:
-             raise HTTPException(status_code=400, detail="You cannot chat with yourself.")
-                 
-    else:
-        # Client calling this?
-        # This endpoint is specifically for "Starting a chat" behaving as the 'active' side (Helper).
-        raise HTTPException(status_code=403, detail="Only helpers can initiate chat via this endpoint")
+    target_client_id = task.client_id
+    target_helper_id = None
 
-    # Check existence
+    if current_user.role == 'helper':
+        # Helper initiating/getting chat with Client
+        target_helper_id = current_user.id
+        # Guard: Prevent self-chat
+        if target_helper_id == target_client_id:
+             raise HTTPException(status_code=400, detail="You cannot chat with yourself.")
+             
+    elif current_user.role == 'client':
+        # Client initiating/getting chat with a Helper
+        if task.client_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access threads for this task")
+            
+        if not helper_id:
+             raise HTTPException(status_code=400, detail="helper_id is required for clients to initiate chat")
+             
+        target_helper_id = helper_id
+        
+        # Verify helper exists
+        helper_user = await db.get(User, target_helper_id)
+        if not helper_user:
+            raise HTTPException(status_code=404, detail="Helper not found")
+            
+    else:
+        # Admin or other?
+        raise HTTPException(status_code=403, detail="Role not authorized to initiate chat")
+
+    # Check existence of thread between this Task, Client, and Helper
     query = select(TaskThread).where(
         TaskThread.task_id == task_id,
-        TaskThread.helper_id == helper_id
+        TaskThread.client_id == target_client_id,
+        TaskThread.helper_id == target_helper_id
     ).options(selectinload(TaskThread.messages))
     
     result = await db.execute(query)
@@ -60,14 +71,14 @@ async def get_or_create_thread(
     if not thread:
         thread = TaskThread(
             task_id=task_id,
-            client_id=client_id,
-            helper_id=helper_id
+            client_id=target_client_id,
+            helper_id=target_helper_id
         )
         db.add(thread)
         await db.commit()
         await db.refresh(thread)
-        # Re-fetch with messages to satisfy schema (empty list) is automatic or explicit refresh needed?
-        # Provide empty list manually if needed or selectinload handles it on refresh if accessed
+        # Re-fetch or manually set messages to empty to satisfy response model
+        # (A fresh object usually satisfies the ORM relation as empty list if not loaded, or explicit re-load)
     
     return thread
 

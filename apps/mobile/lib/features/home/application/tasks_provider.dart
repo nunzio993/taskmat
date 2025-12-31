@@ -28,6 +28,10 @@ Future<List<Task>> nearbyTasks(Ref ref) async {
 
 @riverpod
 Future<List<Task>> myCreatedTasks(Ref ref) async {
+  // Auto-refresh every 5 seconds to catch new offers/messages
+  final timer = Timer(const Duration(seconds: 5), () => ref.invalidateSelf());
+  ref.onDispose(() => timer.cancel());
+
   final dio = ref.read(apiClientProvider);
   final session = ref.read(authProvider).value;
   if (session == null || session.role != 'client') return [];

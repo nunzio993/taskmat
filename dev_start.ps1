@@ -17,6 +17,10 @@ $backendPath = Join-Path $ProjectRoot "apps\backend"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$backendPath'; .\venv\Scripts\python.exe -m uvicorn main:app --reload --host 127.0.0.1 --port 8000"
 
 # 3. Avvia Flutter
-$env:Path += ";C:\src\flutter\bin"
-Set-Location "$ProjectRoot\apps\mobile"
-C:\src\flutter\bin\flutter.bat run -d web-server --web-port 3000
+# Start Flutter (Frontend)
+Write-Host "Starting Flutter..."
+cd apps\mobile
+Write-Host "Cleaning Flutter build..."
+Start-Process "C:\src\flutter\bin\flutter.bat" -ArgumentList "clean" -NoNewWindow -Wait
+Write-Host "Starting Flutter..."
+Start-Process "C:\src\flutter\bin\flutter.bat" -ArgumentList "run -d web-server --web-port=3002 --web-hostname=0.0.0.0" -NoNewWindow -Wait

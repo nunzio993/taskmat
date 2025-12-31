@@ -15,7 +15,13 @@ import '../../home/presentation/offer_dialog.dart';
 import '../../home/presentation/offers_list.dart';
 import '../../home/presentation/chat_screen.dart';
 import '../../home/presentation/proof_upload_dialog.dart';
+import '../../home/presentation/proof_upload_dialog.dart';
 import '../../../core/api_client.dart';
+import '../../home/presentation/client/widgets/client_offers_list.dart';
+import '../../home/presentation/client/widgets/client_detail_pane.dart'; // For ChatDialogContent
+import '../../chat/application/chat_providers.dart';
+import '../../chat/domain/chat_models.dart';
+import '../../home/application/task_service.dart';
 
 class TaskDetailsScreen extends ConsumerStatefulWidget {
   final Task initialTask;
@@ -221,7 +227,12 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
           const Divider(),
           const SizedBox(height: 16),
           const SectionHeader(title: 'Offers'),
-          OffersList(taskId: task.id, offers: task.offers),
+          ClientOffersList(
+            task: task,
+            onOpenChat: (helperId) => _openChatWithHelper(context, ref, helperId),
+            onAcceptOffer: (offer) => _acceptOffer(context, ref, offer),
+            onDeclineOffer: (offer) => _declineOffer(context, ref, offer),
+          ),
         ],
         if ((task.status == 'in_confirmation' || task.status == 'completed') && task.proofs.isNotEmpty) ...[
           const SizedBox(height: 24),
@@ -233,7 +244,7 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
             padding: const EdgeInsets.only(bottom: 8.0),
             child: ClipRRect(
                borderRadius: BorderRadius.circular(8),
-               // In a real app, use p.storageKey as URL (or presigned url)
+                // In a real app, use p.storageKey as URL (or presigned url)
                // For mock, it's a file path which won't load on client if helper uploaded it from their device
                // UNLESS we are on the same device simulator OR backend acts as proxy.
                // Since backend mock stores "mock_proof_timestamp.jpg", we can't display it easily without S3.
@@ -540,6 +551,99 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
     }
 
     return null;
+  }
+
+  void _showChatDialog(BuildContext context, WidgetRef ref, ChatThread thread, TaskOffer? offer) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ChatDialogContent(
+          thread: thread,
+          taskId: widget.task.id,
+          offer: offer,
+          onAcceptOffer: (o) => _acceptOffer(context, ref, o),
+          onDeclineOffer: (o) => _declineOffer(context, ref, o),
+        ),
+      ),
+    );
+  }
+
+  void _openChatWithHelper(BuildContext context, WidgetRef ref, int helperId) async {
+    print('DEBUG: _openChatWithHelper called with helperId=$helperId, taskId=${widget.task.id}');
+    try {
+      print('DEBUG: Loading threads...');
+      final threads = await ref.read(taskThreadsProvider(widget.task.id).future);
+      print('DEBUG: Loaded ${threads.length} threads');
+      var thread = threads.where((t) => t.helperId == helperId).firstOrNull;
+
+      if (thread == null) {
+        print('DEBUG: No thread found locally for helper $helperId, creating one...');
+        try {
+          thread = await ref.read(chatServiceProvider).getOrCreateThreadAsClient(widget.task.id, helperId);
+          // Refresh the list provider so it appears there too
+          ref.invalidate(taskThreadsProvider(widget.task.id));
+        } catch (e) {
+          print('DEBUG: Failed to create thread: $e');
+        }
+      }
+      
+      if (thread != null) {
+        print('DEBUG: Found/Created thread for helper $helperId, opening dialog');
+        final offer = widget.task.offers.where((o) => o.helperId == helperId).firstOrNull;
+        if (context.mounted) {
+          _showChatDialog(context, ref, thread, offer);
+        }
+      } else {
+        print('DEBUG: Still no thread for helper $helperId');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unable to start chat with this helper.')),
+          );
+        }
+      }
+    } catch (e) {
+      print('DEBUG: Error in _openChatWithHelper: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading chat: $e')),
+        );
+      }
+    }
+  }
+
+  void _acceptOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
+    try {
+      await ref.read(taskServiceProvider.notifier).selectOffer(widget.task.id, offer.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offer accepted!')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _declineOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
+    try {
+      await ref.read(taskServiceProvider.notifier).declineOffer(widget.task.id, offer.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offer declined.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 }
 

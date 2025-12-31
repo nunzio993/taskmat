@@ -33,6 +33,13 @@ class ChatService {
     });
     return TaskMessage.fromJson(response.data);
   }
+
+  Future<ChatThread> getOrCreateThreadAsClient(int taskId, int helperId) async {
+    final response = await dio.post('/chat/tasks/$taskId/thread', queryParameters: {
+      'helper_id': helperId
+    });
+    return ChatThread.fromJson(response.data);
+  }
 }
 
 final chatServiceProvider = Provider((ref) {

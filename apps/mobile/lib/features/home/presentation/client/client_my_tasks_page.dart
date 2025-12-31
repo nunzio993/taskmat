@@ -7,6 +7,8 @@ import '../../application/task_service.dart';
 import '../../../chat/application/chat_providers.dart';
 import '../../../chat/domain/chat_models.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'widgets/client_offers_list.dart';
+import 'widgets/client_detail_pane.dart'; // For ChatDialogContent
 
 // Enums for UI State
 enum TaskFilter { active, history }
@@ -280,7 +282,7 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
             if (task.status == 'posted') ...[
                _ChatThreadsSection(taskId: task.id),
                const SizedBox(height: 24),
-               _OffersSection(taskId: task.id, offers: task.offers, taskRevision: task.version),
+               _OffersSection(task: task),
             ],
                
             if (['assigned', 'in_progress', 'in_confirmation'].contains(task.status))
@@ -596,15 +598,113 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
   }
 }
 
-class _OffersSection extends ConsumerWidget {
-  final int taskId;
-  final List<dynamic> offers; // TaskOffer
-  final int taskRevision;
+class _OffersSection extends ConsumerStatefulWidget {
+  final Task task;
   
-  const _OffersSection({required this.taskId, required this.offers, required this.taskRevision});
+  const _OffersSection({required this.task});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_OffersSection> createState() => _OffersSectionState();
+}
+
+class _OffersSectionState extends ConsumerState<_OffersSection> {
+
+  void _showChatDialog(BuildContext context, WidgetRef ref, ChatThread thread, TaskOffer? offer) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ChatDialogContent(
+          thread: thread,
+          taskId: widget.task.id,
+          offer: offer,
+          onAcceptOffer: (o) => _acceptOffer(context, ref, o),
+          onDeclineOffer: (o) => _declineOffer(context, ref, o),
+        ),
+      ),
+    );
+  }
+
+  void _openChatWithHelper(BuildContext context, WidgetRef ref, int helperId) async {
+    print('DEBUG: _openChatWithHelper called with helperId=$helperId, taskId=${widget.task.id}');
+    try {
+      print('DEBUG: Loading threads...');
+      final threads = await ref.read(taskThreadsProvider(widget.task.id).future);
+      print('DEBUG: Loaded ${threads.length} threads');
+      var thread = threads.where((t) => t.helperId == helperId).firstOrNull;
+
+      if (thread == null) {
+        print('DEBUG: No thread found locally for helper $helperId, creating one...');
+        try {
+          thread = await ref.read(chatServiceProvider).getOrCreateThreadAsClient(widget.task.id, helperId);
+          // Refresh the list provider so it appears there too
+          ref.invalidate(taskThreadsProvider(widget.task.id));
+        } catch (e) {
+          print('DEBUG: Failed to create thread: $e');
+        }
+      }
+      
+      if (thread != null) {
+        print('DEBUG: Found/Created thread for helper $helperId, opening dialog');
+        // Find the offer from this helper (if any)
+        final offer = (widget.task.offers).where((o) => o.helperId == helperId).firstOrNull;
+        if (context.mounted) {
+          _showChatDialog(context, ref, thread, offer);
+        }
+      } else {
+        print('DEBUG: Still no thread for helper $helperId');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unable to start chat with this helper.')),
+          );
+        }
+      }
+    } catch (e) {
+      print('DEBUG: Error in _openChatWithHelper: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading chat: $e')),
+        );
+      }
+    }
+  }
+
+  void _acceptOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
+    try {
+      await ref.read(taskServiceProvider.notifier).selectOffer(widget.task.id, offer.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offer accepted!')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _declineOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
+    try {
+      await ref.read(taskServiceProvider.notifier).declineOffer(widget.task.id, offer.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offer declined.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
      return Column(
        crossAxisAlignment: CrossAxisAlignment.start,
        children: [
@@ -613,148 +713,19 @@ class _OffersSection extends ConsumerWidget {
              Icon(Icons.local_offer_outlined, color: Colors.grey[700]),
              const SizedBox(width: 8),
              Text(
-               'Offers (${offers.length})', 
+               'Offers (${widget.task.offers.length})', 
                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
              ),
            ],
          ),
          const SizedBox(height: 16),
-         if (offers.isEmpty) 
-           Container(
-             width: double.infinity,
-             padding: const EdgeInsets.all(24),
-             decoration: BoxDecoration(
-               color: Colors.grey[50],
-               borderRadius: BorderRadius.circular(12),
-               border: Border.all(color: Colors.grey.shade200)
-             ),
-             child: Column(
-               children: [
-                 Icon(Icons.hourglass_empty, color: Colors.grey[400], size: 32),
-                 const SizedBox(height: 8),
-                 Text('Waiting for helpers...', style: TextStyle(color: Colors.grey[500])),
-               ],
-             ),
-           ),
          
-         ...offers.map((offer) => Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-              border: Border.all(color: Colors.grey.shade100),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: Colors.blue.shade100,
-                          child: Text(
-                            (offer.helperName ?? 'H')[0].toUpperCase(),
-                            style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              offer.helperName ?? 'Helper ${offer.helperId}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            Row(
-                              children: [
-                                const Icon(Icons.star, size: 14, color: Colors.amber),
-                                Text(
-                                  ' ${offer.helperRating?.toStringAsFixed(1) ?? "New"}',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                )
-                              ],
-                            )
-                          ],
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '€${(offer.priceCents/100).toStringAsFixed(2)}',
-                        style: TextStyle(
-                          color: Colors.green.shade700,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    offer.message != null && offer.message!.isNotEmpty ?  offer.message! : 'No message provided.',
-                    style: TextStyle(color: Colors.grey[800], fontStyle: FontStyle.italic),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                     Expanded(
-                       child: OutlinedButton.icon(
-                         icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                         label: const Text('Chat'),
-                         onPressed: () {
-                            // TODO: Navigate to chat
-                         },
-                         style: OutlinedButton.styleFrom(
-                           padding: const EdgeInsets.symmetric(vertical: 12),
-                           side: BorderSide(color: Colors.grey.shade300),
-                         ),
-                       ),
-                     ),
-                     const SizedBox(width: 12),
-                     Expanded(
-                       child: ElevatedButton.icon(
-                         icon: const Icon(Icons.check, size: 18),
-                         label: const Text('Accept'),
-                         onPressed: () async {
-                            await ref.read(taskServiceProvider.notifier).selectOffer(taskId, offer.id);
-                            ref.invalidate(myCreatedTasksProvider);
-                         },
-                        style: ElevatedButton.styleFrom(
-                           padding: const EdgeInsets.symmetric(vertical: 12),
-                           backgroundColor: Colors.black,
-                           foregroundColor: Colors.white,
-                         ),
-                       ),
-                     ),
-                  ],
-                )
-              ],
-            ),
-         )).toList()
+          ClientOffersList(
+            task: widget.task,
+            onOpenChat: (helperId) => _openChatWithHelper(context, ref, helperId),
+            onAcceptOffer: (offer) => _acceptOffer(context, ref, offer),
+            onDeclineOffer: (offer) => _declineOffer(context, ref, offer),
+          ),
        ],
      );
   }

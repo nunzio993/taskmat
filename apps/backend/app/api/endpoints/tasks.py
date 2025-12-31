@@ -18,11 +18,85 @@ from app.schemas.chat import TaskMessageCreate, TaskMessageResponse, TaskThreadR
 
 router = APIRouter()
 
+print(">>> LOADING TASKS.PY - CODE VERSION 2 - MANUAL HYDRATION FIX <<<")
+
+# DIAGNOSTIC ENDPOINT - must be BEFORE /{task_id} route!
+@router.get("/diag/offers/{task_id}")
+async def diag_offers(task_id: int, db: AsyncSession = Depends(deps.get_db)):
+    """Diagnostic endpoint to test offer query directly."""
+    from sqlalchemy import text
+    
+    # Raw SQL
+    raw_result = await db.execute(text(f"SELECT id, task_id, helper_id, price_cents FROM task_offers WHERE task_id = {task_id}"))
+    raw_offers = raw_result.fetchall()
+    
+    # ORM Query
+    orm_stmt = select(TaskOffer).where(TaskOffer.task_id == task_id)
+    orm_result = await db.execute(orm_stmt)
+    orm_offers = orm_result.scalars().all()
+    
+    return {
+        "code_version": 2,
+        "task_id_requested": task_id,
+        "raw_sql_count": len(raw_offers),
+        "raw_sql_offers": [{"id": r[0], "task_id": r[1], "helper_id": r[2], "price": r[3]} for r in raw_offers],
+        "orm_count": len(orm_offers),
+        "orm_offers": [{"id": o.id, "task_id": o.task_id, "helper_id": o.helper_id, "price": o.price_cents} for o in orm_offers]
+    }
+
+@router.get("/diag/full_task/{task_id}")
+async def diag_full_task(task_id: int, db: AsyncSession = Depends(deps.get_db)):
+    """Diagnostic: simulate full get_task logic without auth."""
+    from sqlalchemy import text
+    
+    # 1. Get task
+    stmt = select(Task).where(Task.id == task_id).options(selectinload(Task.proofs))
+    result = await db.execute(stmt)
+    task = result.scalars().first()
+    if not task:
+        return {"error": "Task not found"}
+    
+    # 2. Manual hydration
+    offer_stmt = select(TaskOffer).where(TaskOffer.task_id == task.id).options(selectinload(TaskOffer.helper))
+    offer_res = await db.execute(offer_stmt)
+    offers_list = offer_res.scalars().all()
+    
+    # 3. Return raw data
+    raw_result = {
+        "task_id": task.id,
+        "task_title": task.title,
+        "offers_count_from_hydration": len(offers_list),
+        "offers_raw": [{"id": o.id, "task_id": o.task_id, "helper_id": o.helper_id, "price": o.price_cents, "has_helper": o.helper is not None} for o in offers_list],
+    }
+    
+    # 4. Now test _to_task_out
+    try:
+        task_out = _to_task_out(task, explicit_offers=offers_list)
+        raw_result["_to_task_out_offers_count"] = len(task_out.offers)
+        raw_result["_to_task_out_first_offer"] = task_out.offers[0].dict() if task_out.offers else None
+    except Exception as e:
+        raw_result["_to_task_out_error"] = str(e)
+    
+    return raw_result
+
 @router.post("/", response_model=schemas.TaskOut)
 async def create_task(
     task_in: schemas.TaskCreate,
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
+    # Enforce client_id from current_user
+    # task_in.client_id is trusted currently, but should be overwritten or checked
+    if current_user.role != 'client':
+         # Depending on logic, helpers might not create tasks. 
+         # MVP: Allow if role is client
+         # if current_user.role != 'client': raise HTTPException(403)
+         pass
+
+    # Force client_id to matches token owner
+    # But for MVP demo we might have 'client_id' in body. 
+    # Let's override it to ensure security.
+    task_in.client_id = current_user.id
     # Verify client exists (optional for MVP speed but good practice)
     result = await db.execute(select(User).where(User.id == task_in.client_id))
     client = result.scalars().first()
@@ -64,6 +138,7 @@ async def get_nearby_tasks(
     lat: float,
     lon: float,
     radius_km: float = 50.0,
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
     # PostGIS query
@@ -90,22 +165,55 @@ async def get_nearby_tasks(
     
     result = await db.execute(stmt)
     tasks = result.scalars().all()
-    return [_to_task_out(t) for t in tasks]
+    
+    # Manual hydration for offers (same pattern as /tasks/created)
+    final_list = []
+    for t in tasks:
+        offer_stmt = select(TaskOffer).where(TaskOffer.task_id == t.id).options(selectinload(TaskOffer.helper))
+        offer_res = await db.execute(offer_stmt)
+        offers_list = offer_res.scalars().all()
+        final_list.append(_to_task_out(t, explicit_offers=offers_list))
+        
+    return final_list
 
 @router.get("/created", response_model=List[schemas.TaskOut])
 async def get_created_tasks(
     client_id: int,
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
-    stmt = select(Task).where(Task.client_id == client_id).order_by(Task.created_at.desc()).options(selectinload(Task.proofs))
+    # Verify access
+    if current_user.id != client_id and current_user.role != 'admin':
+        # Clients can only see their own created? 
+        # Helpers might need to see CLIENT's history? 
+        # For now, restrict created to owner
+        raise HTTPException(status_code=403, detail="Not authorized")
+    stmt = select(Task).where(Task.client_id == client_id).order_by(Task.created_at.desc()).options(
+        selectinload(Task.proofs)
+    )
     result = await db.execute(stmt)
-    return [_to_task_out(t) for t in result.scalars().all()]
+    tasks = result.scalars().all()
+    # Manual hydration hack to ensure offers are visible
+    final_list = []
+    for t in tasks:
+        offer_stmt = select(TaskOffer).where(TaskOffer.task_id == t.id).options(selectinload(TaskOffer.helper))
+        offer_res = await db.execute(offer_stmt)
+        offers_list = offer_res.scalars().all()
+        print(f"DEBUG /tasks/created: Task {t.id} has {len(offers_list)} offers")
+        for o in offers_list:
+            print(f"   -> Offer {o.id}: helper={o.helper_id}, price={o.price_cents}, status={o.status}")
+        final_list.append(_to_task_out(t, explicit_offers=offers_list))
+        
+    return final_list
 
 @router.get("/assigned", response_model=List[schemas.TaskOut])
 async def get_assigned_tasks(
     helper_id: int,
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
+    if current_user.id != helper_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     # Find active assignments
     # Using TaskAssignment table logic or inferred from status/offers?
     # Phase 2 logic: TaskAssignment exists OR selected_offer.helper_id == helper_id
@@ -119,21 +227,47 @@ async def get_assigned_tasks(
     result = await db.execute(stmt)
     return [_to_task_out(t) for t in result.scalars().all()]
 
+import logging
+logger = logging.getLogger("uvicorn")
+
+@router.get("/debug_probe")
+async def debug_probe():
+    logger.info("DEBUG_EP: Probe endpoint hit!")
+    return {"status": "alive", "message": "I am the new code with manual hydration!"}
+
 @router.get("/{task_id}", response_model=schemas.TaskOut)
 async def get_task(
     task_id: int,
+    current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
-    stmt = select(Task).where(Task.id == task_id).options(selectinload(Task.proofs))
+    logger.info(f"DEBUG_EP: get_task called for id={task_id} by user={current_user.id}")
+    stmt = select(Task).where(Task.id == task_id).options(
+        selectinload(Task.proofs)
+    )
     result = await db.execute(stmt)
     task = result.scalars().first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return _to_task_out(task)
 
-def _to_task_out(task: Task) -> schemas.TaskOut:
+    # Manual hydration for reliability
+    print(f"DEBUG: Querying offers for task.id={task.id} (type={type(task.id)})")
+    offer_stmt = select(TaskOffer).where(TaskOffer.task_id == task.id).options(selectinload(TaskOffer.helper))
+    offer_res = await db.execute(offer_stmt)
+    offers_list = offer_res.scalars().all()
+    print(f"DEBUG: Found {len(offers_list)} offers for task {task.id}")
+    for o in offers_list:
+        print(f"   -> Offer {o.id}: task_id={o.task_id}, price={o.price_cents}")
+    
+    return _to_task_out(task, explicit_offers=offers_list)
+
+def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None) -> schemas.TaskOut:
     sh = to_shape(task.location)
     
+    # DEBUG LOGGING
+    print(f"DEBUG _to_task_out: explicit_offers is None? {explicit_offers is None}")
+    print(f"DEBUG _to_task_out: explicit_offers count: {len(explicit_offers) if explicit_offers else 0}")
+
     # Client Profile Construction
     client_profile = None
     if 'client' in task.__dict__ and task.client:
@@ -148,6 +282,12 @@ def _to_task_out(task: Task) -> schemas.TaskOut:
              avg_rating=avg_rating,
              review_count=len(reviews)
          )
+
+    # Use explicit offers if provided, otherwise fallback to ORM loaded
+    final_offers = explicit_offers if explicit_offers is not None else (task.offers if 'offers' in task.__dict__ else [])
+    print(f"DEBUG _to_task_out: final_offers count: {len(final_offers)}")
+    for o in final_offers:
+        print(f"   -> Serializing offer {o.id}, helper: {o.helper}")
 
     return schemas.TaskOut(
         id=task.id,
@@ -175,7 +315,21 @@ def _to_task_out(task: Task) -> schemas.TaskOut:
         completed_at=task.completed_at,
         dispute_open_until=task.dispute_open_until,
         proofs=[schemas.TaskProofResponse.from_orm(p) for p in task.proofs] if 'proofs' in task.__dict__ else [],
-        offers=[schemas.TaskOfferResponse.from_orm(o) for o in task.offers] if 'offers' in task.__dict__ else []
+        offers=[
+            schemas.TaskOfferResponse(
+                id=o.id,
+                task_id=o.task_id,
+                helper_id=o.helper_id,
+                status=o.status,
+                price_cents=o.price_cents,
+                message=o.message,
+                created_at=o.created_at,
+                updated_at=o.updated_at,
+                helper_name=o.helper.name if o.helper else "Unknown Helper",
+                helper_avatar_url=None, # Placeholder
+                helper_rating=0.0 # Placeholder
+            ) for o in final_offers
+        ]
     )
 
 @router.patch("/{task_id}", response_model=schemas.TaskOut)
