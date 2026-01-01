@@ -7,6 +7,7 @@ import '../../domain/task.dart';
 import '../../application/tasks_provider.dart';
 import 'widgets/helper_master_list.dart';
 import 'widgets/helper_detail_pane.dart';
+import 'helper_my_jobs_page.dart'; // Import the new page
 
 class HelperDashboardScreen extends ConsumerStatefulWidget {
   final LatLng? userLocation;
@@ -18,6 +19,9 @@ class HelperDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _HelperDashboardScreenState extends ConsumerState<HelperDashboardScreen> {
+  int _currentIndex = 0; // 0 = Find Work, 1 = My Jobs
+  
+  // Find Work State
   int? _selectedTaskId;
 
   void _onTaskSelected(Task task) {
@@ -32,6 +36,35 @@ class _HelperDashboardScreenState extends ConsumerState<HelperDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      body: _buildBody(),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.search),
+            label: 'Find Work',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.work),
+            label: 'My Jobs',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_currentIndex == 1) {
+      return const HelperMyJobsPage();
+    }
+    
+    // Index 0: Find Work (Original Logic)
     final nearbyTasksAsync = ref.watch(nearbyTasksProvider);
     final width = MediaQuery.of(context).size.width;
     final isSplitView = width > 900;
@@ -46,6 +79,9 @@ class _HelperDashboardScreenState extends ConsumerState<HelperDashboardScreen> {
     }
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Find Work'),
+      ),
       body: Row(
         children: [
           // Left: Master List

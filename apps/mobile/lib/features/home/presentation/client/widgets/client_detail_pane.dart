@@ -243,6 +243,7 @@ class ClientDetailPane extends ConsumerWidget {
         child: ChatDialogContent(
           thread: thread,
           taskId: task.id,
+          taskStatus: task.status,
           offer: offer,
           onAcceptOffer: (o) => _acceptOffer(context, ref, o),
           onDeclineOffer: (o) => _declineOffer(context, ref, o),
@@ -353,6 +354,7 @@ class ClientDetailPane extends ConsumerWidget {
 class ChatDialogContent extends ConsumerStatefulWidget {
   final ChatThread thread;
   final int taskId;
+  final String? taskStatus;
   final TaskOffer? offer;
   final Function(TaskOffer)? onAcceptOffer;
   final Function(TaskOffer)? onDeclineOffer;
@@ -361,6 +363,7 @@ class ChatDialogContent extends ConsumerStatefulWidget {
     super.key, 
     required this.thread, 
     required this.taskId,
+    this.taskStatus,
     this.offer,
     this.onAcceptOffer,
     this.onDeclineOffer,
@@ -380,6 +383,105 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
     _controller.clear();
     await ref.read(chatControllerProvider.notifier).sendMessage(widget.thread.id, text);
     ref.invalidate(threadMessagesProvider(widget.thread.id));
+  }
+
+  Widget _buildOfferBar(BuildContext context) {
+    final offer = widget.offer!;
+    final taskStatus = widget.taskStatus ?? 'posted';
+    final isTaskAssigned = ['assigned', 'in_progress', 'in_confirmation', 'completed'].contains(taskStatus);
+    final isOfferAccepted = offer.status == 'accepted';
+    final isOfferDeclined = offer.status == 'declined';
+    final isOfferPending = offer.status == 'submitted';
+    
+    Color bgColor;
+    Color borderColor;
+    Widget statusWidget;
+    
+    if (isOfferAccepted) {
+      bgColor = Colors.green.shade50;
+      borderColor = Colors.green.shade200;
+      statusWidget = Row(
+        children: [
+          Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+          const SizedBox(width: 8),
+          Text('Offer Accepted', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+        ],
+      );
+    } else if (isOfferDeclined) {
+      bgColor = Colors.red.shade50;
+      borderColor = Colors.red.shade200;
+      statusWidget = Row(
+        children: [
+          Icon(Icons.cancel, color: Colors.red.shade700, size: 20),
+          const SizedBox(width: 8),
+          Text('Offer Declined', style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+        ],
+      );
+    } else if (isTaskAssigned && !isOfferAccepted) {
+      // Task is assigned but this offer wasn't the one accepted
+      bgColor = Colors.grey.shade100;
+      borderColor = Colors.grey.shade300;
+      statusWidget = Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.grey.shade600, size: 20),
+          const SizedBox(width: 8),
+          Text('Another offer was accepted', style: TextStyle(color: Colors.grey.shade600)),
+        ],
+      );
+    } else {
+      // Pending offer, show action buttons
+      bgColor = Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3);
+      borderColor = Colors.grey.shade200;
+      statusWidget = Row(
+        children: [
+          OutlinedButton(
+            onPressed: () {
+              widget.onDeclineOffer?.call(offer);
+              Navigator.pop(context);
+            },
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Decline'),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {
+              widget.onAcceptOffer?.call(offer);
+              Navigator.pop(context);
+            },
+            child: const Text('Accept'),
+          ),
+        ],
+      );
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border(bottom: BorderSide(color: borderColor)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isOfferPending ? 'Current Offer' : 'Offer', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  '€${(offer.priceCents / 100).toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isOfferAccepted ? Colors.green.shade700 : isOfferDeclined ? Colors.red.shade700 : Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          statusWidget,
+        ],
+      ),
+    );
   }
 
   @override
@@ -407,51 +509,9 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
              ),
           ),
           
-          // Offer Action Bar (if offer exists and is pending)
-          if (widget.offer != null && widget.offer!.status == 'submitted')
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Current Offer', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        Text(
-                          '€${(widget.offer!.priceCents / 100).toStringAsFixed(2)}',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton(
-                    onPressed: () {
-                      widget.onDeclineOffer?.call(widget.offer!);
-                      Navigator.pop(context);
-                    },
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                    child: const Text('Decline'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      widget.onAcceptOffer?.call(widget.offer!);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Accept'),
-                  ),
-                ],
-              ),
-            ),
+          // Offer Action Bar (if offer exists)
+          if (widget.offer != null)
+            _buildOfferBar(context),
           
           // Messages
           Expanded(
@@ -474,6 +534,11 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
                         final priceCents = msg.payload['price_cents'];
                         final offerId = msg.payload['offer_id'];
                         final isClient = ref.read(authProvider).value?.role == 'client';
+                        final taskStatus = widget.taskStatus ?? 'posted';
+                        final isTaskAssigned = ['assigned', 'in_progress', 'in_confirmation', 'completed'].contains(taskStatus);
+                        
+                        // Determine if this specific offer is the accepted one
+                        final isThisOfferAccepted = widget.offer?.id == offerId && widget.offer?.status == 'accepted';
 
                         return Align(
                           alignment: Alignment.center,
@@ -482,38 +547,36 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
                             padding: const EdgeInsets.all(16),
                             width: 250,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: isThisOfferAccepted ? Colors.green.shade50 : Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.blue.shade100),
+                              border: Border.all(color: isThisOfferAccepted ? Colors.green.shade200 : Colors.blue.shade100),
                               boxShadow: [
                                 BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
                               ],
                             ),
                             child: Column(
                               children: [
-                                Text('New Offer', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
+                                Text(
+                                  isThisOfferAccepted ? 'Accepted Offer' : (isTaskAssigned ? 'Offer' : 'New Offer'),
+                                  style: TextStyle(
+                                    color: isThisOfferAccepted ? Colors.green.shade700 : Colors.blue.shade700,
+                                    fontWeight: FontWeight.bold
+                                  )
+                                ),
                                 const SizedBox(height: 8),
-                                Text('€${(priceCents/100).toStringAsFixed(2)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                                Text('€${(priceCents/100).toStringAsFixed(2)}', style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: isThisOfferAccepted ? Colors.green.shade700 : null
+                                )),
                                 const SizedBox(height: 12),
                                 Text(msg.body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
                                 const SizedBox(height: 12),
-                                if (isClient)
+                                // Show buttons only if client, task not assigned, and this is a pending offer
+                                if (isClient && !isTaskAssigned)
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      // We need the full offer object to accept/decline. 
-                                      // If we don't have it in context, we might need to fetch it or cheat.
-                                      // Currently `ChatDialogContent` has `widget.offer` which MIGHT be the current one.
-                                      // But if there are multiple offers or history, `widget.offer` is likely just one of them.
-                                      // ideally we pass a callback that takes ID.
-                                      // AND we need to know if this offer is still valid (pending). 
-                                      // For now, let's assume if it's rendered, we can try to accept it.
-                                      
-                                      // Using `widget.onDeclineOffer` which takes `TaskOffer`. We don't have `TaskOffer` object here easily.
-                                      // Workaround: Create a fake TaskOffer with just ID? Or change callback signature?
-                                      // Changing callback signature is better but affects other code.
-                                      // Let's create a partial TaskOffer.
-                                      
                                       OutlinedButton(
                                         onPressed: () {
                                           final tempOffer = TaskOffer(id: offerId, taskId: widget.taskId, helperId: msg.senderId, priceCents: priceCents, message: "", status: 'submitted');
@@ -535,6 +598,17 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
                                       ),
                                     ],
                                   )
+                                else if (isThisOfferAccepted)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.green.shade700, size: 16),
+                                      const SizedBox(width: 4),
+                                      Text('Accepted', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+                                    ],
+                                  )
+                                else if (isTaskAssigned)
+                                  Text('Task already assigned', style: TextStyle(color: Colors.grey.shade500, fontSize: 11))
                               ],
                             ),
                           ),

@@ -77,4 +77,21 @@ class TaskService extends _$TaskService {
     
     await dio.post('/tasks/$taskId/proofs/upload', data: formData);
   }
+
+  // --- LIFECYCLE ---
+
+  Future<void> startTask(int taskId) async {
+    final dio = ref.read(apiClientProvider);
+    await dio.post('/tasks/$taskId/start');
+  }
+
+  Future<void> requestCompletion(int taskId) async {
+    final dio = ref.read(apiClientProvider);
+    await dio.post('/tasks/$taskId/complete-request');
+  }
+
+  Future<void> confirmCompletion(int taskId) async {
+    final dio = ref.read(apiClientProvider);
+    await dio.post('/tasks/$taskId/confirm');
+  }
 }

@@ -26,6 +26,9 @@ Dio apiClient(Ref ref) {
       final token = prefs.getString('auth_token');
       if (token != null) {
         options.headers['Authorization'] = 'Bearer $token';
+        print('🔐 Auth Header added to ${options.method} ${options.path}');
+      } else {
+        print('⚠️ No Auth Token found for ${options.method} ${options.path}');
       }
     return handler.next(options);
     },

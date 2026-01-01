@@ -10,17 +10,21 @@ from app.models.user import User
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(database.get_db)):
+    print(f"DEBUG AUTH: Received token: {token[:20] if token else 'None'}...")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        # print(f"DEBUG AUTH: decoding token: {token[:10]}...") 
         payload = jwt.decode(token, config.settings.SECRET_KEY, algorithms=[config.settings.ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
+            print("DEBUG AUTH: Email not found in payload")
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
+        print(f"DEBUG AUTH: JWTError: {e}")
         raise credentials_exception
         
     result = await db.execute(select(User).where(User.email == email))

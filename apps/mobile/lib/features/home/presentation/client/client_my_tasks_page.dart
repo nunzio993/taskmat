@@ -200,6 +200,29 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
                             fontSize: 12
                           ),
                         ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(task.status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.info_outline, size: 12, color: _getStatusColor(task.status)),
+                            const SizedBox(width: 4),
+                            Text(
+                              task.status.toUpperCase(),
+                              style: TextStyle(
+                                color: _getStatusColor(task.status),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                 ),
@@ -224,6 +247,7 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
     switch(status.toLowerCase()) {
       case 'posted': color = Colors.blue; break;
       case 'assigned': color = Colors.orange; break;
+      case 'in_progress': color = Colors.purple; break;
       case 'completed': color = Colors.green; break;
       default: color = Colors.grey;
     }
@@ -232,6 +256,17 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
       backgroundColor: color,
       padding: EdgeInsets.zero,
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch(status.toLowerCase()) {
+      case 'posted': return Colors.blue;
+      case 'assigned': return Colors.orange;
+      case 'in_progress': return Colors.purple;
+      case 'completed': return Colors.green;
+      case 'cancelled': return Colors.red;
+      default: return Colors.grey;
+    }
   }
 
   // --- DETAIL VIEW ---
@@ -274,18 +309,19 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
             _EditTaskSection(task: task),
               
             const SizedBox(height: 24),
-            // Status is now inside the card
             
-            // Offers & Chat
-            // Offers & Chat
+            // Actions Card (like Helper)
+            if (['assigned', 'in_progress', 'in_confirmation'].contains(task.status)) ...[
+               _ActiveTaskActions(task: task),
+               const SizedBox(height: 24),
+            ],
+            
+            // Messages & Offers (Client-specific)
             if (['posted', 'assigned', 'in_progress'].contains(task.status)) ...[
                _ChatThreadsSection(taskId: task.id),
                const SizedBox(height: 24),
                _OffersSection(task: task),
             ],
-               
-            if (['assigned', 'in_progress', 'in_confirmation'].contains(task.status))
-               _ActiveTaskActions(task: task),
          ],
        ),
      );
@@ -565,6 +601,11 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
     switch(status.toLowerCase()) {
       case 'posted': color = Colors.blue; break;
       case 'assigned': color = Colors.orange; break;
+      case 'in_progress': return Container( // Special handling if needed or just color
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purple.withOpacity(0.2))),
+          child: const Text('IN_PROGRESS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
+      );
       case 'completed': color = Colors.green; break;
       default: color = Colors.grey;
     }
@@ -705,48 +746,136 @@ class _OffersSectionState extends ConsumerState<_OffersSection> {
 
   @override
   Widget build(BuildContext context) {
-     return Column(
-       crossAxisAlignment: CrossAxisAlignment.start,
-       children: [
-         Row(
-           children: [
-             Icon(Icons.local_offer_outlined, color: Colors.grey[700]),
-             const SizedBox(width: 8),
-             Text(
-               'Offers (${widget.task.offers.length})', 
-               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
+     if (widget.task.offers.isEmpty) return const SizedBox.shrink();
+
+     return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+          border: Border.all(color: Colors.grey.shade100),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_offer_outlined, color: Colors.grey[700]),
+                const SizedBox(width: 8),
+                Text(
+                  'Offers (${widget.task.offers.length})', 
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+             ClientOffersList(
+               task: widget.task,
+               onOpenChat: (helperId) => _openChatWithHelper(context, ref, helperId),
+               onAcceptOffer: (offer) => _acceptOffer(context, ref, offer),
+               onDeclineOffer: (offer) => _declineOffer(context, ref, offer),
              ),
-           ],
-         ),
-         const SizedBox(height: 16),
-         
-          ClientOffersList(
-            task: widget.task,
-            onOpenChat: (helperId) => _openChatWithHelper(context, ref, helperId),
-            onAcceptOffer: (offer) => _acceptOffer(context, ref, offer),
-            onDeclineOffer: (offer) => _declineOffer(context, ref, offer),
-          ),
-       ],
+          ],
+        ),
      );
   }
 }
 
-class _ActiveTaskActions extends StatelessWidget {
+class _ActiveTaskActions extends ConsumerWidget {
   final Task task;
   const _ActiveTaskActions({required this.task});
   
+  void _openChatWithHelper(BuildContext context, WidgetRef ref) async {
+    // We try to find the thread with the assigned helper
+    // If not found, we might need to handle it, but usually if assigned/in_progress it exists or we can find it via offers.
+    // For simplicity, we'll try to get the thread for the task and open the first one (usually 1:1 if assigned).
+    try {
+      final threads = await ref.read(taskThreadsProvider(task.id).future);
+      // In a 1:1 assigned task, there should be one main thread or we pick the one matching assigned_to logic if available.
+      // For now, open the first thread or show error
+      if (threads.isNotEmpty) {
+        if (context.mounted) {
+             showDialog(
+              context: context,
+              builder: (_) => Dialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: ChatDialogContent(
+                  thread: threads.first,
+                  taskId: task.id,
+                ),
+              ),
+            );
+        }
+      } else {
+         if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No chat thread found')));
+      }
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _confirmCompletion(BuildContext context, WidgetRef ref) async {
+     try {
+       await ref.read(taskServiceProvider.notifier).confirmCompletion(task.id);
+       ref.invalidate(myCreatedTasksProvider);
+       if (context.mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task confirmed completed!')));
+       }
+     } catch (e) {
+       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+     }
+  }
+
   @override
-  Widget build(BuildContext context) {
-     // Based on state, show buttons
+  Widget build(BuildContext context, WidgetRef ref) {
+     final status = task.status;
+     final isInConfirmation = status == 'in_confirmation';
+     final isInProgress = status == 'in_progress';
+     final isAssigned = status == 'assigned';
+     
      return Card(
        color: Colors.blue.shade50,
+       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
        child: Padding(
          padding: const EdgeInsets.all(16),
          child: Column(
+           crossAxisAlignment: CrossAxisAlignment.stretch,
            children: [
-              Text('Task is ${task.status}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              if (task.status == 'in_confirmation')
-                ElevatedButton(onPressed: (){}, child: const Text('Confirm Completion (TODO)')),
+              Text(
+                isInConfirmation ? 'Completion Requested' : isInProgress ? 'Job In Progress' : 'Job Assigned',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), 
+                textAlign: TextAlign.center
+              ),
+              const SizedBox(height: 16),
+              
+              ElevatedButton.icon(
+                onPressed: () => _openChatWithHelper(context, ref),
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Chat with Helper'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  side: BorderSide(color: Colors.grey.shade300)
+                ),
+              ),
+              
+              if (isInConfirmation) ...[
+                 const SizedBox(height: 12),
+                 ElevatedButton(
+                   onPressed: () => _confirmCompletion(context, ref),
+                   style: ElevatedButton.styleFrom(
+                     backgroundColor: Colors.purple,
+                     foregroundColor: Colors.white,
+                     padding: const EdgeInsets.symmetric(vertical: 16),
+                   ),
+                   child: const Text('Confirm Completion'),
+                 ),
+              ]
            ],
          ),
        ),
@@ -760,26 +889,36 @@ class _ChatThreadsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the list of threads for this task
     final threadsAsync = ref.watch(taskThreadsProvider(taskId));
 
     return threadsAsync.when(
       data: (threads) {
         if (threads.isEmpty) return const SizedBox.shrink();
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-             Row(
-               children: [
-                 const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.black87),
-                 const SizedBox(width: 8),
-                 Text('Messages', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-               ],
-             ),
-            const SizedBox(height: 12),
-            ...threads.map((thread) => _buildThreadCard(context, thread)),
-          ],
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
+            border: Border.all(color: Colors.grey.shade100),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+               Row(
+                 children: [
+                   const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.black87),
+                   const SizedBox(width: 8),
+                   Text('Messages', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                 ],
+               ),
+              const SizedBox(height: 16),
+              ...threads.map((thread) => _buildThreadItem(context, thread)),
+            ],
+          ),
         );
       },
       loading: () => const LinearProgressIndicator(),
@@ -787,21 +926,20 @@ class _ChatThreadsSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildThreadCard(BuildContext context, ChatThread thread) {
+  Widget _buildThreadItem(BuildContext context, ChatThread thread) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: Colors.blue.shade100,
           child: Text(
-            (thread.helperName ?? 'H').substring(0, 1).toUpperCase(),
+            (thread.helperName?.isNotEmpty == true ? thread.helperName! : 'Helper').substring(0, 1).toUpperCase(),
             style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold),
           ),
         ),
@@ -817,18 +955,23 @@ class _ChatThreadsSection extends ConsumerWidget {
           ],
         ),
         subtitle: Text(
-          thread.messages.isNotEmpty ? thread.messages.last.body : 'No messages yet',
+          thread.messages.isNotEmpty ? thread.messages.last.body : 'Start chatting...',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: thread.messages.isNotEmpty ? Colors.grey.shade700 : Colors.grey.shade400),
         ),
         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
         onTap: () {
-           context.push('/chat', extra: {
-             'taskId': taskId,
-             'helperId': thread.helperId,
-             'title': thread.helperName ?? 'Chat with Helper'
-           });
+             showDialog(
+                context: context,
+                builder: (_) => Dialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: ChatDialogContent(
+                    thread: thread,
+                    taskId: taskId,
+                  ),
+                ),
+             );
         },
       ),
     );
