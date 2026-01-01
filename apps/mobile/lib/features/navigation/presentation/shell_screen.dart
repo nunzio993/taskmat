@@ -13,7 +13,7 @@ class ShellScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authProvider).value;
     final navItems = _buildNavItems(session?.role);
-    final selectedIndex = _calculateSelectedIndex(context);
+    final selectedIndex = _calculateSelectedIndex(context, session?.role);
 
     return Scaffold(
       body: LayoutBuilder(
@@ -54,14 +54,12 @@ class ShellScreen extends ConsumerWidget {
   List<BottomNavigationBarItem> _buildNavItems(String? role) {
     if (role == 'helper') {
       return const [
-        // Helpers see Dashboard/Home too
-        BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Home'),
-        // Helpers can also be clients, so they need 'My Tasks'
-        BottomNavigationBarItem(icon: Icon(Icons.list_alt_outlined), activeIcon: Icon(Icons.list_alt), label: 'My Tasks'),
-        // Helper specific work view (replaces 'Become Helper')
-        BottomNavigationBarItem(icon: Icon(Icons.work_outline), activeIcon: Icon(Icons.work), label: 'Jobs'),
-        // Profile
+        BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.search_outlined), activeIcon: Icon(Icons.search), label: 'Find Work'),
+        BottomNavigationBarItem(icon: Icon(Icons.work_outline), activeIcon: Icon(Icons.work), label: 'My Jobs'),
+        BottomNavigationBarItem(icon: Icon(Icons.task_alt_outlined), activeIcon: Icon(Icons.task_alt), label: 'My Tasks'),
         BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
+        BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Preferences'),
       ];
     }
     // Client (Default)
@@ -70,46 +68,53 @@ class ShellScreen extends ConsumerWidget {
       BottomNavigationBarItem(icon: Icon(Icons.list_alt_outlined), activeIcon: Icon(Icons.list_alt), label: 'My Tasks'),
       BottomNavigationBarItem(icon: Icon(Icons.handshake_outlined), activeIcon: Icon(Icons.handshake), label: 'Become Helper'),
       BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
+      BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Preferences'),
     ];
   }
 
-  int _calculateSelectedIndex(BuildContext context) {
+  int _calculateSelectedIndex(BuildContext context, String? role) {
     final String location = GoRouterState.of(context).matchedLocation;
+    
+    if (role == 'helper') {
+      // Helper: Home(0), Find Work(1), My Jobs(2), My Tasks(3), Profile(4), Preferences(5)
+      if (location.startsWith('/home')) return 0;
+      if (location.startsWith('/find-work')) return 1;
+      if (location.startsWith('/my-jobs')) return 2;
+      if (location.startsWith('/my-tasks')) return 3;
+      if (location.startsWith('/profile')) return 4;
+      if (location.startsWith('/preferences')) return 5;
+      return 0;
+    }
+    
+    // Client: Home(0), My Tasks(1), Become Helper(2), Profile(3), Preferences(4)
     if (location.startsWith('/home')) return 0;
-    
-    // Index 1: My Tasks (Client View - for everyone)
     if (location.startsWith('/my-tasks')) return 1;
-    
-    // Index 2: Helper Actions (Jobs for Helper, Register for Client)
-    if (location.startsWith('/my-jobs')) return 2;
     if (location.startsWith('/register-helper')) return 2;
-    
-    // Index 3: Profile
     if (location.startsWith('/profile')) return 3;
-    
+    if (location.startsWith('/preferences')) return 4;
     return 0;
   }
 
   void _onItemTapped(int index, BuildContext context, String? role) {
-    switch (index) {
-      case 0:
-        context.go('/home');
-        break;
-      case 1:
-        // Everyone goes to My Tasks (Client view)
-        context.go('/my-tasks');
-        break;
-      case 2:
-        // Role specific action
-        if (role == 'helper') {
-          context.go('/my-jobs');
-        } else {
-          context.go('/register-helper');
-        }
-        break;
-      case 3:
-        context.go('/profile');
-        break;
+    if (role == 'helper') {
+      // Helper: Home(0), Find Work(1), My Jobs(2), My Tasks(3), Profile(4), Preferences(5)
+      switch (index) {
+        case 0: context.go('/home'); break;
+        case 1: context.go('/find-work'); break;
+        case 2: context.go('/my-jobs'); break;
+        case 3: context.go('/my-tasks'); break;
+        case 4: context.go('/profile'); break;
+        case 5: context.go('/preferences'); break;
+      }
+    } else {
+      // Client: Home(0), My Tasks(1), Become Helper(2), Profile(3), Preferences(4)
+      switch (index) {
+        case 0: context.go('/home'); break;
+        case 1: context.go('/my-tasks'); break;
+        case 2: context.go('/register-helper'); break;
+        case 3: context.go('/profile'); break;
+        case 4: context.go('/preferences'); break;
+      }
     }
   }
 }

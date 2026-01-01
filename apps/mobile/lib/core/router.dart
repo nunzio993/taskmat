@@ -19,6 +19,9 @@ import '../features/profile/presentation/payment_methods_screen.dart';
 import '../features/profile/presentation/notification_settings_screen.dart';
 import 'package:mobile/features/profile/presentation/help_center_screen.dart';
 import '../features/profile/presentation/edit_personal_profile_screen.dart';
+import '../features/home/presentation/helper/find_work_screen.dart';
+import '../features/profile/presentation/preferences_screen.dart';
+import '../features/home/presentation/helper/helper_my_jobs_page.dart';
 
 part 'router.g.dart';
 
@@ -74,7 +77,15 @@ GoRouter router(Ref ref) {
           ),
           GoRoute(
             path: '/my-jobs',
-            builder: (context, state) => const MyJobsScreen(),
+            builder: (context, state) => const HelperMyJobsPage(),
+          ),
+          GoRoute(
+            path: '/find-work',
+            builder: (context, state) => const FindWorkScreen(),
+          ),
+          GoRoute(
+            path: '/preferences',
+            builder: (context, state) => const PreferencesScreen(),
           ),
           GoRoute(
             path: '/profile',

@@ -6,7 +6,6 @@ import '../../profile/presentation/tabs/public_tab.dart';
 import '../../profile/presentation/tabs/private_tab.dart';
 import '../../profile/presentation/tabs/payments_tab.dart';
 import '../../profile/presentation/tabs/security_tab.dart';
-import '../../profile/presentation/tabs/preferences_tab.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -17,17 +16,12 @@ class ProfileScreen extends ConsumerWidget {
     if (session == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return DefaultTabController(
-      length: 5,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('My Profile'),
           actions: [
-             IconButton(icon: const Icon(Icons.settings), onPressed: () {}), // Generic Settings placeholder
-             IconButton(
-               icon: const Icon(Icons.support_agent), 
-               onPressed: () {},
-               tooltip: 'Support',
-             ),
+             IconButton(icon: const Icon(Icons.support_agent), onPressed: () {}, tooltip: 'Support'),
           ],
         ),
         body: Column(
@@ -36,10 +30,7 @@ class ProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16.0),
               child: ProfileSummaryCard(
                 session: session,
-                onEdit: () {
-                   // Focus Public Tab or open separate editor?
-                   // For now, tabs handle their own editing.
-                },
+                onEdit: () {},
                 onLogout: () => ref.read(authProvider.notifier).logout(),
               ),
             ),
@@ -52,7 +43,6 @@ class ProfileScreen extends ConsumerWidget {
                 Tab(text: 'Private'),
                 Tab(text: 'Payments'),
                 Tab(text: 'Security'),
-                Tab(text: 'Preferences'),
               ],
             ),
             const Expanded(
@@ -62,7 +52,6 @@ class ProfileScreen extends ConsumerWidget {
                   PrivateTab(),
                   PaymentsTab(),
                   SecurityTab(),
-                  PreferencesTab(),
                 ],
               ),
             ),
@@ -72,3 +61,4 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 }
+
