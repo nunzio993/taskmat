@@ -60,3 +60,8 @@ node_modules/
 
 # Generated files
 *.g.dart
+
+# Temporary/Large files
+*.zip
+flutter_releases.json
+probe_api_debug.py

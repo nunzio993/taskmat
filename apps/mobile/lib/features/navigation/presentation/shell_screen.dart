@@ -28,7 +28,8 @@ class ShellScreen extends ConsumerWidget {
                   labelType: NavigationRailLabelType.all,
                   destinations: navItems.map((item) => NavigationRailDestination(
                     icon: item.icon,
-                    label: Text(item.label!),
+                    selectedIcon: item.selectedIcon,
+                    label: Text(item.label),
                   )).toList(),
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
@@ -42,33 +43,32 @@ class ShellScreen extends ConsumerWidget {
       ),
       bottomNavigationBar: MediaQuery.of(context).size.width > 640 
           ? null 
-          : BottomNavigationBar(
-              items: navItems,
-              currentIndex: selectedIndex,
-              onTap: (idx) => _onItemTapped(idx, context, session?.role),
-              type: BottomNavigationBarType.fixed,
+          : NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (idx) => _onItemTapped(idx, context, session?.role),
+              destinations: navItems,
             ),
     );
   }
 
-  List<BottomNavigationBarItem> _buildNavItems(String? role) {
+  List<NavigationDestination> _buildNavItems(String? role) {
     if (role == 'helper') {
       return const [
-        BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.search_outlined), activeIcon: Icon(Icons.search), label: 'Find Work'),
-        BottomNavigationBarItem(icon: Icon(Icons.work_outline), activeIcon: Icon(Icons.work), label: 'My Jobs'),
-        BottomNavigationBarItem(icon: Icon(Icons.task_alt_outlined), activeIcon: Icon(Icons.task_alt), label: 'My Tasks'),
-        BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
-        BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Preferences'),
+        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+        NavigationDestination(icon: Icon(Icons.search_outlined), selectedIcon: Icon(Icons.search), label: 'Find Work'),
+        NavigationDestination(icon: Icon(Icons.work_outline), selectedIcon: Icon(Icons.work), label: 'My Jobs'),
+        NavigationDestination(icon: Icon(Icons.task_alt_outlined), selectedIcon: Icon(Icons.task_alt), label: 'My Tasks'),
+        NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+        NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Preferences'),
       ];
     }
     // Client (Default)
     return const [
-      BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Home'),
-      BottomNavigationBarItem(icon: Icon(Icons.list_alt_outlined), activeIcon: Icon(Icons.list_alt), label: 'My Tasks'),
-      BottomNavigationBarItem(icon: Icon(Icons.handshake_outlined), activeIcon: Icon(Icons.handshake), label: 'Become Helper'),
-      BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
-      BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Preferences'),
+      NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Home'),
+      NavigationDestination(icon: Icon(Icons.list_alt_outlined), selectedIcon: Icon(Icons.list_alt), label: 'My Tasks'),
+      NavigationDestination(icon: Icon(Icons.handshake_outlined), selectedIcon: Icon(Icons.handshake), label: 'Be Helper'),
+      NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+      NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Preferences'),
     ];
   }
 
