@@ -20,3 +20,4 @@ python-jose[cryptography]
 email-validator
 aiosqlite
 python-multipart
+websockets

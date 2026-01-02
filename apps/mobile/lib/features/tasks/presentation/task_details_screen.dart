@@ -71,11 +71,29 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
     final taskState = ref.watch(taskControllerProvider);
     final session = ref.watch(authProvider).value;
     
-    final nearbyTasks = ref.watch(nearbyTasksProvider);
-    final currentTask = nearbyTasks.valueOrNull?.firstWhere(
-      (element) => element.id == widget.initialTask.id,
-      orElse: () => widget.initialTask,
-    ) ?? widget.initialTask;
+    
+    // Try to find the latest version of the task explicitly favoring personal lists
+    Task? updatedTask;
+    
+    // 1. Look in My Created Tasks (for Client) - Priority Source
+    if (session?.role == 'client') {
+       final myTasks = ref.watch(myCreatedTasksProvider).valueOrNull;
+       updatedTask = myTasks?.where((t) => t.id == widget.initialTask.id).firstOrNull;
+    }
+    
+    // 2. Look in My Assigned Tasks (for Helper) - Priority Source
+    if (updatedTask == null && session?.role == 'helper') {
+       final myJobs = ref.watch(myAssignedTasksProvider).valueOrNull;
+       updatedTask = myJobs?.where((t) => t.id == widget.initialTask.id).firstOrNull;
+    }
+
+    // 3. Look in Nearby Tasks (Fallback)
+    if (updatedTask == null) {
+      final nearbyTasks = ref.watch(nearbyTasksProvider).valueOrNull;
+      updatedTask = nearbyTasks?.where((t) => t.id == widget.initialTask.id).firstOrNull;
+    }
+
+    final currentTask = updatedTask ?? widget.initialTask;
     
     return Scaffold(
       body: LayoutBuilder(
@@ -615,6 +633,11 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
   void _acceptOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
     try {
       await ref.read(taskServiceProvider.notifier).selectOffer(widget.task.id, offer.id);
+      
+      // Force refresh
+      ref.invalidate(myCreatedTasksProvider);
+      ref.invalidate(nearbyTasksProvider);
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Offer accepted!')),
@@ -632,6 +655,11 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
   void _declineOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
     try {
       await ref.read(taskServiceProvider.notifier).declineOffer(widget.task.id, offer.id);
+      
+      // Force refresh for immediate feedback
+      ref.invalidate(myCreatedTasksProvider);
+      ref.invalidate(nearbyTasksProvider);
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Offer declined.')),

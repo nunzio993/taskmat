@@ -13,7 +13,11 @@ class ActiveTasksPreview extends ConsumerWidget {
     final tasksAsync = ref.watch(myCreatedTasksProvider);
     
     return tasksAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation(Colors.teal.shade400),
+        ),
+      ),
       error: (e, _) => Center(child: Text('Errore: $e')),
       data: (tasks) {
         // Filter active tasks and take max 5
@@ -32,15 +36,26 @@ class ActiveTasksPreview extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Le mie task attive',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Icon(Icons.assignment, color: Colors.teal.shade600, size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Le mie task attive',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.teal.shade800,
+                      ),
+                    ),
+                  ],
                 ),
                 if (tasks.length > 5)
                   TextButton(
                     onPressed: () => context.go('/my-tasks'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.teal.shade600,
+                    ),
                     child: const Text('Vedi tutte'),
                   ),
               ],
@@ -57,29 +72,51 @@ class ActiveTasksPreview extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        gradient: LinearGradient(
+          colors: [
+            Colors.teal.shade50,
+            Colors.teal.shade100.withOpacity(0.3),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.teal.shade200),
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.task_outlined,
-            size: 48,
-            color: Theme.of(context).colorScheme.outline,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.teal.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.task_outlined,
+              size: 36,
+              color: Colors.teal.shade400,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             'Nessuna task attiva',
             style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
-              fontWeight: FontWeight.w500,
+              color: Colors.teal.shade700,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Crea la tua prima task per iniziare!',
             style: TextStyle(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.7),
+              color: Colors.teal.shade600,
               fontSize: 13,
             ),
           ),
@@ -93,106 +130,132 @@ class ActiveTasksPreview extends ConsumerWidget {
     final offersCount = task.offers.length;
     final timeSinceCreated = _getTimeSince(task.createdAt);
     
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: () => context.go('/my-tasks?selectedTaskId=${task.id}'),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Icon categoria
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(10),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.teal.shade100),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.go('/my-tasks?selectedTaskId=${task.id}'),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                // Icon categoria
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.teal.shade200),
+                  ),
+                  child: Icon(
+                    _getCategoryIcon(task.category),
+                    color: Colors.teal.shade600,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(
-                  _getCategoryIcon(task.category),
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              
-              // Info task
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      task.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                const SizedBox(width: 12),
+                
+                // Info task
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        task.title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: Colors.teal.shade900,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Categoria: ${task.category}',
+                        style: TextStyle(
+                          color: Colors.teal.shade500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Status / Info destra
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Badge stato o info offerte
+                    if (task.status == 'payment_failed')
+                      _buildPaymentFailedBadge(context, task)
+                    else if (task.status == 'posted' && offersCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Text(
+                          'Offerte: $offersCount',
+                          style: TextStyle(
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusInfo.color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: statusInfo.color.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          statusInfo.label,
+                          style: TextStyle(
+                            color: statusInfo.color,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 4),
                     Text(
-                      'Categoria: ${task.category}',
+                      timeSinceCreated,
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.outline,
-                        fontSize: 12,
+                        color: Colors.teal.shade400,
+                        fontSize: 11,
                       ),
                     ),
                   ],
                 ),
-              ),
-              
-              // Status / Info destra
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // Badge stato o info offerte
-                  if (task.status == 'payment_failed')
-                    _buildPaymentFailedBadge(context, task)
-                  else if (task.status == 'posted' && offersCount > 0)
-                    Text(
-                      'Offerte ricevute: $offersCount',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusInfo.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        statusInfo.label,
-                        style: TextStyle(
-                          color: statusInfo.color,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 4),
-                  Text(
-                    timeSinceCreated,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.outline,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ],
+                
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right,
+                  color: Colors.teal.shade300,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -231,17 +294,17 @@ class ActiveTasksPreview extends ConsumerWidget {
   ({String label, Color color}) _getStatusInfo(String status) {
     switch (status) {
       case 'posted':
-        return (label: 'Pubblicata', color: Colors.blue);
+        return (label: 'Pubblicata', color: Colors.teal.shade600);
       case 'assigning':
-        return (label: 'In Selezione', color: Colors.orange);
+        return (label: 'In Selezione', color: Colors.orange.shade600);
       case 'assigned':
-        return (label: 'Assegnata', color: Colors.orange);
+        return (label: 'Assegnata', color: Colors.orange.shade600);
       case 'in_progress':
-        return (label: 'In Lavoro', color: Colors.green);
+        return (label: 'In Lavoro', color: Colors.teal.shade700);
       case 'in_confirmation':
-        return (label: 'Da Confermare', color: Colors.purple);
+        return (label: 'Da Confermare', color: Colors.purple.shade600);
       case 'payment_failed':
-        return (label: 'Pagamento Fallito', color: Colors.red);
+        return (label: 'Pagamento Fallito', color: Colors.red.shade600);
       default:
         return (label: status, color: Colors.grey);
     }

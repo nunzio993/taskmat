@@ -4,15 +4,42 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../core/api_client.dart';
+import '../../../core/websocket_service.dart';
 import '../../auth/application/auth_provider.dart';
 import '../domain/task.dart';
 
 part 'tasks_provider.g.dart';
 
+
+/// Trigger for refreshing tasks based on WebSocket events
+@riverpod
+class TaskRefreshTrigger extends _$TaskRefreshTrigger {
+  @override
+  int build() {
+    // Listen to WebSocket events
+    ref.listen(webSocketEventsProvider, (previous, next) {
+      next.whenData((event) {
+        if (event.type == 'new_offer' || 
+            event.type == 'task_status_changed' || 
+            event.type == 'offer_accepted' || 
+            event.type == 'offer_rejected' || 
+            event.type == 'offer_status_changed') {
+          // Increment state to trigger rebuild of dependents
+          state++;
+        }
+      });
+    });
+    return 0;
+  }
+}
+
 @riverpod
 Future<List<Task>> nearbyTasks(Ref ref) async {
-  // Auto-refresh every 5 seconds
-  final timer = Timer(const Duration(seconds: 5), () => ref.invalidateSelf());
+  // Watch refresh trigger for real-time updates
+  ref.watch(taskRefreshTriggerProvider);
+
+  // Conservative fallback polling every 60 seconds
+  final timer = Timer(const Duration(seconds: 60), () => ref.invalidateSelf());
   ref.onDispose(() => timer.cancel());
 
   final dio = ref.read(apiClientProvider);
@@ -28,13 +55,19 @@ Future<List<Task>> nearbyTasks(Ref ref) async {
 
 @riverpod
 Future<List<Task>> myCreatedTasks(Ref ref) async {
-  // Auto-refresh every 5 seconds to catch new offers/messages
-  final timer = Timer(const Duration(seconds: 5), () => ref.invalidateSelf());
+  // Watch auth to handle login/logout
+  final session = ref.watch(authProvider).value;
+  if (session == null) return [];
+  
+  // Watch the refresh trigger - this will cause this provider to rebuild whenever
+  // the trigger increments (on WebSocket events)
+  ref.watch(taskRefreshTriggerProvider);
+
+  // Conservative fallback polling every 60 seconds
+  final timer = Timer(const Duration(seconds: 60), () => ref.invalidateSelf());
   ref.onDispose(() => timer.cancel());
 
   final dio = ref.read(apiClientProvider);
-  final session = ref.read(authProvider).value;
-  if (session == null) return [];
 
   final response = await dio.get('/tasks/created', queryParameters: {
     'client_id': session.id,
@@ -45,9 +78,18 @@ Future<List<Task>> myCreatedTasks(Ref ref) async {
 
 @riverpod
 Future<List<Task>> myAssignedTasks(Ref ref) async {
-  final dio = ref.read(apiClientProvider);
-  final session = ref.read(authProvider).value;
+  // Watch auth
+  final session = ref.watch(authProvider).value;
   if (session == null || session.role != 'helper') return [];
+
+  // Watch refresh trigger for real-time updates
+  ref.watch(taskRefreshTriggerProvider);
+
+  // Conservative fallback polling
+  final timer = Timer(const Duration(seconds: 60), () => ref.invalidateSelf());
+  ref.onDispose(() => timer.cancel());
+
+  final dio = ref.read(apiClientProvider);
 
   final response = await dio.get('/tasks/assigned', queryParameters: {
     'helper_id': session.id,
@@ -56,10 +98,11 @@ Future<List<Task>> myAssignedTasks(Ref ref) async {
   return (response.data as List).map((json) => Task.fromJson(json)).toList();
 }
 
+
 /// Check if helper has any active job (for default Home routing)
 @riverpod
 Future<bool> hasActiveHelperJob(Ref ref) async {
-  final session = ref.read(authProvider).value;
+  final session = ref.watch(authProvider).value;
   if (session == null || session.role != 'helper') return false;
   
   try {
@@ -69,6 +112,25 @@ Future<bool> hasActiveHelperJob(Ref ref) async {
     );
   } catch (_) {
     return false;
+  }
+}
+
+/// Get the active helper job (first one) for display in the active job strip
+@riverpod
+Future<Task?> activeHelperJob(Ref ref) async {
+  final session = ref.watch(authProvider).value;
+  if (session == null || session.role != 'helper') return null;
+  
+  try {
+    final tasks = await ref.watch(myAssignedTasksProvider.future);
+    final activeJobs = tasks.where((t) => 
+      ['assigned', 'in_progress', 'in_confirmation'].contains(t.status)
+    ).toList();
+    
+    if (activeJobs.isEmpty) return null;
+    return activeJobs.first;
+  } catch (_) {
+    return null;
   }
 }
 
@@ -143,4 +205,137 @@ Future<List<SanitizedTask>> sanitizedMarketPreview(Ref ref) async {
   } catch (_) {
     return [];
   }
+}
+
+// ============================================
+// HELPER DASHBOARD PROVIDERS
+// ============================================
+
+/// Helper availability state (online/offline)
+/// For now stored locally, in production would sync with backend
+@riverpod
+class HelperAvailability extends _$HelperAvailability {
+  @override
+  bool build() {
+    // Default to available
+    return true;
+  }
+  
+  void setAvailable(bool available) {
+    state = available;
+    // TODO: In production, sync with backend
+    // await ref.read(apiClientProvider).post('/helper/availability', data: {'available': available});
+  }
+  
+  void toggle() {
+    state = !state;
+  }
+}
+
+/// Mock earnings data for helper dashboard
+class HelperEarnings {
+  final int todayCents;
+  final int weekCents;
+  final int pendingPayoutCents;
+  final double rating;
+  final int reviewCount;
+  
+  const HelperEarnings({
+    required this.todayCents,
+    required this.weekCents,
+    required this.pendingPayoutCents,
+    required this.rating,
+    required this.reviewCount,
+  });
+}
+
+@riverpod
+Future<HelperEarnings> helperEarnings(Ref ref) async {
+  final session = ref.watch(authProvider).value;
+  if (session == null || session.role != 'helper') {
+    return const HelperEarnings(
+      todayCents: 0,
+      weekCents: 0,
+      pendingPayoutCents: 0,
+      rating: 0,
+      reviewCount: 0,
+    );
+  }
+  
+  // TODO: In production, fetch from backend
+  // For now return mock data
+  return const HelperEarnings(
+    todayCents: 4500,      // €45.00
+    weekCents: 32000,      // €320.00
+    pendingPayoutCents: 12500, // €125.00
+    rating: 4.8,
+    reviewCount: 23,
+  );
+}
+
+/// Recent chat threads for inbox preview
+class RecentThread {
+  final int threadId;
+  final int taskId;
+  final String taskTitle;
+  final String otherUserName;
+  final String? otherUserAvatar;
+  final String lastMessage;
+  final DateTime lastMessageAt;
+  final bool hasUnread;
+  
+  const RecentThread({
+    required this.threadId,
+    required this.taskId,
+    required this.taskTitle,
+    required this.otherUserName,
+    this.otherUserAvatar,
+    required this.lastMessage,
+    required this.lastMessageAt,
+    required this.hasUnread,
+  });
+}
+
+@riverpod
+Future<List<RecentThread>> helperRecentThreads(Ref ref) async {
+  final session = ref.watch(authProvider).value;
+  if (session == null || session.role != 'helper') return [];
+  
+  // Watch assigned tasks to get threads from active jobs
+  final assignedTasks = await ref.watch(myAssignedTasksProvider.future);
+  
+  // For now, create mock recent threads based on assigned tasks
+  // In production, would fetch from backend /chat/threads/recent
+  final List<RecentThread> threads = [];
+  
+  for (final task in assignedTasks.take(5)) {
+    threads.add(RecentThread(
+      threadId: task.id * 100, // Mock thread ID
+      taskId: task.id,
+      taskTitle: task.title,
+      otherUserName: task.client?.displayName ?? 'Cliente',
+      otherUserAvatar: task.client?.avatarUrl,
+      lastMessage: 'Messaggio di esempio per ${task.title}',
+      lastMessageAt: DateTime.now().subtract(Duration(minutes: task.id * 5)),
+      hasUnread: task.id % 2 == 0, // Mock: every other has unread
+    ));
+  }
+  
+  return threads;
+}
+
+/// Check if helper has critical alerts (e.g., Stripe not configured)
+@riverpod
+Future<List<String>> helperAlerts(Ref ref) async {
+  final session = ref.watch(authProvider).value;
+  if (session == null || session.role != 'helper') return [];
+  
+  // TODO: In production, check actual status
+  // For now, return mock alerts
+  final List<String> alerts = [];
+  
+  // Example alert (remove in production when Stripe is configured)
+  // alerts.add('Configura Stripe Connect per ricevere pagamenti');
+  
+  return alerts;
 }

@@ -49,7 +49,7 @@ class ClientOffersList extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final offer = offers[index];
-        final isDeclined = offer.status == 'declined';
+        final isDeclined = offer.status == 'rejected' || offer.status == 'declined';
         final isAccepted = offer.status == 'accepted';
         final isTaskAssigned = ['assigned', 'in_progress', 'completed'].contains(task.status);
         

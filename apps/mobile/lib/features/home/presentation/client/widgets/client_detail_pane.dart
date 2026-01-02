@@ -390,7 +390,7 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
     final taskStatus = widget.taskStatus ?? 'posted';
     final isTaskAssigned = ['assigned', 'in_progress', 'in_confirmation', 'completed'].contains(taskStatus);
     final isOfferAccepted = offer.status == 'accepted';
-    final isOfferDeclined = offer.status == 'declined';
+    final isOfferDeclined = offer.status == 'rejected' || offer.status == 'declined';
     final isOfferPending = offer.status == 'submitted';
     
     Color bgColor;

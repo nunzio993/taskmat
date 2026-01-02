@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import tasks, auth, profile, helper, chat
+from app.api.endpoints import tasks, auth, profile, helper, chat, ws
 from app.core.redis_client import redis_client
 from app.core.database import engine, Base
 
@@ -42,6 +42,7 @@ app.include_router(profile.router, prefix="/profile", tags=["profile"])
 app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 app.include_router(helper.router, prefix="/helper", tags=["helper"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
+app.include_router(ws.router, tags=["websocket"])
 
 @app.get("/health")
 async def health_check():

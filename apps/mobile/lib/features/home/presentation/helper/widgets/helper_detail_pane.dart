@@ -27,8 +27,8 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill if needed? or just empty
-    // _priceCtrl.text = (widget.task.priceCents / 100).toStringAsFixed(0);
+    // Pre-fill with task price as suggested offer
+    _priceCtrl.text = (widget.task.priceCents / 100).toStringAsFixed(0);
   }
 
   @override
@@ -48,7 +48,12 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
   Future<void> _sendOffer() async {
     final price = double.tryParse(_priceCtrl.text);
     if (price == null || price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid price')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Inserisci un prezzo valido'),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
       return;
     }
     
@@ -63,13 +68,22 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
       );
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Offer Sent!')));
-        _priceCtrl.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Offerta inviata!'),
+            backgroundColor: Colors.teal.shade600,
+          ),
+        );
         _noteCtrl.clear();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Errore: $e'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -84,7 +98,7 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
      final isAvailable = task.status == 'posted';
 
      return Container(
-       color: Theme.of(context).colorScheme.surface,
+       color: Colors.grey.shade50,
        child: Column(
          crossAxisAlignment: CrossAxisAlignment.stretch,
          children: [
@@ -106,76 +120,70 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
                         margin: const EdgeInsets.only(bottom: 24),
                         decoration: BoxDecoration(
                           color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.red.shade200),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                             Icon(Icons.lock, color: Colors.red),
-                             SizedBox(width: 12),
-                             Expanded(child: Text("Chat disabled: This task is no longer POSTED.", style: TextStyle(color: Colors.red))),
+                             Icon(Icons.lock, color: Colors.red.shade600),
+                             const SizedBox(width: 12),
+                             Expanded(
+                               child: Text(
+                                 "Questa task non è più disponibile.",
+                                 style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w500),
+                               ),
+                             ),
                           ],
                         ),
                       ),
                       
-                    // Description
-                    Text('Description', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    Text(task.description, style: Theme.of(context).textTheme.bodyMedium),
-                    const SizedBox(height: 24),
+                    // Description Card
+                    _buildSectionCard(
+                      title: 'Descrizione',
+                      icon: Icons.description_outlined,
+                      child: Text(
+                        task.description,
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.6,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
 
                     // Location Map
-                    TaskLocationMapWidget(task: task),
-                    const SizedBox(height: 24),
-                    
-                    // Chat Section (Real)
-                    Text('Clarifications', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    ClarificationChatWidget(
-                      task: task,
-                      isEnabled: isAvailable,
+                    _buildSectionCard(
+                      title: 'Posizione',
+                      icon: Icons.location_on_outlined,
+                      child: TaskLocationMapWidget(task: task),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+                    
+                    // Chat Section
+                    _buildSectionCard(
+                      title: 'Chiedi chiarimenti',
+                      icon: Icons.chat_outlined,
+                      headerAction: !isAvailable ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'DISABILITATO',
+                          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                        ),
+                      ) : null,
+                      child: ClarificationChatWidget(
+                        task: task,
+                        isEnabled: isAvailable,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                     
                     // Offer Section
-                    Text('Your Offer', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _priceCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Price (€)',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.euro),
-                      ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      enabled: isAvailable,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _noteCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Note (Optional)',
-                        border: OutlineInputBorder(),
-                        hintText: 'I can do this because...',
-                      ),
-                      maxLines: 2,
-                      enabled: isAvailable,
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isAvailable && !_isMakingOffer ? _sendOffer : null,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: _isMakingOffer 
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white))
-                          : const Text('Send Offer'),
-                      ),
-                    ),
+                    _buildOfferSection(isAvailable),
                   ],
                 ),
               ),
@@ -184,14 +192,243 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
        ),
      );
   }
+
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required Widget child,
+    Widget? headerAction,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.teal.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(icon, color: Colors.teal.shade600, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.teal.shade800,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                if (headerAction != null) ...[
+                  const Spacer(),
+                  headerAction,
+                ],
+              ],
+            ),
+          ),
+          Divider(height: 1, color: Colors.teal.shade50),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfferSection(bool isAvailable) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.teal.shade50,
+            Colors.teal.shade100.withOpacity(0.3),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.teal.shade200),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade600,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.local_offer, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Offri il tuo aiuto!',
+                    style: TextStyle(
+                      color: Colors.teal.shade800,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    'Prezzo offerta  €${_priceCtrl.text.isNotEmpty ? _priceCtrl.text : (widget.task.priceCents / 100).toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: Colors.teal.shade600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
+          // Price Input
+          TextField(
+            controller: _priceCtrl,
+            decoration: InputDecoration(
+              labelText: 'Prezzo offerta',
+              labelStyle: TextStyle(color: Colors.teal.shade600),
+              prefixIcon: Icon(Icons.euro, color: Colors.teal.shade500),
+              prefixText: '€ ',
+              prefixStyle: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.teal.shade200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.teal.shade200),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.teal.shade500, width: 2),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            enabled: isAvailable,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          
+          // Note Input
+          TextField(
+            controller: _noteCtrl,
+            decoration: InputDecoration(
+              labelText: 'Nota (opzionale)',
+              labelStyle: TextStyle(color: Colors.teal.shade600),
+              hintText: 'Posso aiutarti perché...',
+              hintStyle: TextStyle(color: Colors.grey.shade400),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.teal.shade200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.teal.shade200),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.teal.shade500, width: 2),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+            maxLines: 2,
+            enabled: isAvailable,
+          ),
+          const SizedBox(height: 16),
+          
+          // Action Buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: isAvailable && !_isMakingOffer ? _sendOffer : null,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: Colors.teal.shade600,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: _isMakingOffer 
+                    ? SizedBox(
+                        width: 20, 
+                        height: 20, 
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(Colors.teal.shade100),
+                        ),
+                      )
+                    : const Text('Invia offerta', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton(
+                onPressed: isAvailable ? () {
+                  // Ritira offerta logic
+                } : null,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  foregroundColor: Colors.teal.shade600,
+                  side: BorderSide(color: isAvailable ? Colors.teal.shade400 : Colors.grey.shade300),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Ritira offerta'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
   
   Widget _buildHeader(BuildContext context, Task task) {
     return Container(
-       padding: const EdgeInsets.all(24),
+       padding: const EdgeInsets.all(20),
        decoration: BoxDecoration(
-         color: Theme.of(context).colorScheme.surface,
-         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
+         color: Colors.white,
+         border: Border(bottom: BorderSide(color: Colors.teal.shade100)),
+         boxShadow: [
+           BoxShadow(
+             color: Colors.teal.withOpacity(0.05),
+             blurRadius: 6,
+             offset: const Offset(0, 2),
+           ),
+         ],
        ),
        child: Column(
          crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,12 +436,22 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
             Row(
               children: [
                  // Client Info
-                 CircleAvatar(
-                   backgroundColor: Colors.grey.shade200,
-                   backgroundImage: task.client?.avatarUrl != null ? NetworkImage(task.client!.avatarUrl!) : null,
-                   child: task.client?.avatarUrl == null 
-                     ? Text(task.client?.displayName.isNotEmpty == true ? task.client!.displayName[0] : '?', style: const TextStyle(fontWeight: FontWeight.bold)) 
-                     : null,
+                 Container(
+                   decoration: BoxDecoration(
+                     shape: BoxShape.circle,
+                     border: Border.all(color: Colors.teal.shade200, width: 2),
+                   ),
+                   child: CircleAvatar(
+                     radius: 22,
+                     backgroundColor: Colors.teal.shade50,
+                     backgroundImage: task.client?.avatarUrl != null ? NetworkImage(task.client!.avatarUrl!) : null,
+                     child: task.client?.avatarUrl == null 
+                       ? Text(
+                           task.client?.displayName.isNotEmpty == true ? task.client!.displayName[0] : '?',
+                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
+                         ) 
+                       : null,
+                   ),
                  ),
                  const SizedBox(width: 12),
                  Column(
@@ -212,13 +459,22 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
                    children: [
                      Row(
                        children: [
-                         Text(task.client?.displayName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
+                         Text(
+                           task.client?.displayName ?? 'Cliente',
+                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                         ),
                          const SizedBox(width: 8),
-                         const Icon(Icons.star, size: 14, color: Colors.amber),
-                         Text(task.client?.avgRating.toStringAsFixed(1) ?? 'N/A', style: const TextStyle(fontSize: 12)),
+                         Icon(Icons.star, size: 14, color: Colors.amber.shade600),
+                         Text(
+                           task.client?.avgRating.toStringAsFixed(1) ?? 'N/A',
+                           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                         ),
                        ],
                      ),
-                     Text('Posted ${timeago.format(task.createdAt)}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                     Text(
+                       'Pubblicato ${timeago.format(task.createdAt, locale: 'it')}',
+                       style: TextStyle(color: Colors.teal.shade500, fontSize: 12),
+                     ),
                    ],
                  ),
                  const Spacer(),
@@ -226,31 +482,61 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
                  Container(
                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                    decoration: BoxDecoration(
-                     color: task.status == 'posted' ? Colors.green.shade50 : Colors.grey.shade100,
-                     borderRadius: BorderRadius.circular(16),
-                     border: Border.all(color: task.status == 'posted' ? Colors.green : Colors.grey),
+                     color: task.status == 'posted' ? Colors.teal.shade50 : Colors.grey.shade100,
+                     borderRadius: BorderRadius.circular(20),
+                     border: Border.all(
+                       color: task.status == 'posted' ? Colors.teal.shade400 : Colors.grey.shade300,
+                     ),
                    ),
                    child: Text(
-                     task.status.toUpperCase(),
+                     task.status == 'posted' ? 'DISPONIBILE' : task.status.toUpperCase(),
                      style: TextStyle(
                        fontWeight: FontWeight.bold,
-                       fontSize: 12,
-                       color: task.status == 'posted' ? Colors.green : Colors.grey,
+                       fontSize: 11,
+                       color: task.status == 'posted' ? Colors.teal.shade700 : Colors.grey.shade600,
                      ),
                    ),
                  ),
               ],
             ),
             const SizedBox(height: 16),
-            Text(task.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            Text(
+              task.title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Colors.teal.shade900,
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 _buildChip(context, task.category, Icons.work_outline),
                 if (widget.userLocation != null) ...[
                    const SizedBox(width: 8),
-                   _buildChip(context, "${const Distance().as(LengthUnit.Kilometer, widget.userLocation!, LatLng(task.lat, task.lon)).toStringAsFixed(1)} km", Icons.location_on),
-                ]
+                   _buildChip(
+                     context,
+                     "${const Distance().as(LengthUnit.Kilometer, widget.userLocation!, LatLng(task.lat, task.lon)).toStringAsFixed(1)} km",
+                     Icons.location_on,
+                   ),
+                ],
+                const SizedBox(width: 8),
+                // Price badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade600,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '€${(task.priceCents / 100).toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
               ],
             )
          ],
@@ -260,17 +546,25 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
   
   Widget _buildChip(BuildContext context, String label, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: Colors.teal.shade50,
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.teal.shade200),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-           Icon(icon, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+           Icon(icon, size: 14, color: Colors.teal.shade600),
            const SizedBox(width: 4),
-           Text(label, style: Theme.of(context).textTheme.labelSmall),
+           Text(
+             label,
+             style: TextStyle(
+               color: Colors.teal.shade700,
+               fontSize: 12,
+               fontWeight: FontWeight.w500,
+             ),
+           ),
         ],
       ),
     );

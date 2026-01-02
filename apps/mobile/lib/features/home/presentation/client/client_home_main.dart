@@ -48,8 +48,8 @@ class ClientHomeMain extends ConsumerWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Theme.of(context).colorScheme.primary,
-            Theme.of(context).colorScheme.primary.withOpacity(0.8),
+            Colors.teal.shade400,
+            Colors.teal.shade600,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -57,7 +57,7 @@ class ClientHomeMain extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            color: Colors.teal.withOpacity(0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -72,17 +72,17 @@ class ClientHomeMain extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+              children: const [
                 Icon(
                   Icons.add_circle_outline,
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  color: Colors.white,
                   size: 28,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Text(
                   'Crea una Nuova Task',
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
+                    color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),

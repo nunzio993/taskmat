@@ -1,3 +1,4 @@
+import json
 import redis.asyncio as redis
 from app.core.config import settings
 
@@ -29,4 +30,22 @@ class RedisClient:
         if current_holder and int(current_holder) == helper_id:
             await self.redis.delete(key)
 
+    async def publish_event(self, user_id: int, event_type: str, payload: dict = None):
+        """
+        Publish a real-time event to a user's channel.
+        Used for WebSocket notifications.
+        
+        Args:
+            user_id: The user to notify
+            event_type: Event type (e.g., 'new_offer', 'task_status_changed', 'new_message')
+            payload: Additional data for the event
+        """
+        channel = f"user:{user_id}"
+        message = {
+            "type": event_type,
+            **(payload or {})
+        }
+        await self.redis.publish(channel, json.dumps(message))
+
 redis_client = RedisClient()
+

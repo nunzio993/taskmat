@@ -78,6 +78,14 @@ class TaskService:
         
         await db.commit()
         await db.refresh(task)
+        
+        # Publish WebSocket event to notify helper that offer was accepted
+        await redis_client.publish_event(
+            user_id=offer.helper_id,
+            event_type="offer_accepted",
+            payload={"task_id": task_id, "offer_id": offer_id}
+        )
+        
         return task
 
     async def start_task(self, db: AsyncSession, task_id: int, helper_id: int):

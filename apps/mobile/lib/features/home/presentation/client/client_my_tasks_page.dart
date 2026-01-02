@@ -1,3 +1,4 @@
+import 'dart:async'; // Add this for Future.delayed
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -712,13 +713,22 @@ class _OffersSectionState extends ConsumerState<_OffersSection> {
 
   void _acceptOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
     try {
+      print('DEBUG: Accepting offer ${offer.id}...');
       await ref.read(taskServiceProvider.notifier).selectOffer(widget.task.id, offer.id);
+      
+      print('DEBUG: API call success. Waiting 500ms before refresh...');
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      print('DEBUG: Invalidating tasks provider...');
+      ref.invalidate(myCreatedTasksProvider); 
+      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Offer accepted!')),
         );
       }
     } catch (e) {
+      print('DEBUG: Error accepting offer: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
@@ -729,13 +739,22 @@ class _OffersSectionState extends ConsumerState<_OffersSection> {
 
   void _declineOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
     try {
+      print('DEBUG: Declining offer ${offer.id}...');
       await ref.read(taskServiceProvider.notifier).declineOffer(widget.task.id, offer.id);
+      
+      print('DEBUG: API call success. Waiting 500ms before refresh...');
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      print('DEBUG: Invalidating tasks provider...');
+      ref.invalidate(myCreatedTasksProvider); 
+      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Offer declined.')),
         );
       }
     } catch (e) {
+      print('DEBUG: Error declining offer: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),

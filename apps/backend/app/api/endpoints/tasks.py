@@ -465,6 +465,14 @@ async def create_offer(
     db.add(offer_message)
     await db.commit()
     
+    # Publish WebSocket event to notify client
+    from app.core.redis_client import redis_client
+    await redis_client.publish_event(
+        user_id=task.client_id,
+        event_type="new_offer",
+        payload={"task_id": task_id, "offer_id": offer.id, "helper_id": helper_id}
+    )
+    
     return offer
 
 @router.get("/{task_id}/offers", response_model=List[TaskOfferResponse])
@@ -551,6 +559,23 @@ async def reject_offer(
         db.add(rejection_message)
         await db.commit()
     
+    # Publish WebSocket events
+    from app.core.redis_client import redis_client
+    
+    # Notify Client (to trigger refresh)
+    await redis_client.publish_event(
+        user_id=current_user.id,
+        event_type="offer_status_changed",
+        payload={"task_id": task_id, "offer_id": offer.id, "status": "rejected"}
+    )
+    
+    # Notify Helper
+    await redis_client.publish_event(
+        user_id=offer.helper_id,
+        event_type="offer_rejected",
+        payload={"task_id": task_id, "offer_id": offer.id}
+    )
+
     return {"status": "rejected"}
 
 # --- CHAT ---
@@ -592,6 +617,17 @@ async def send_message(
     db.add(new_msg)
     await db.commit()
     await db.refresh(new_msg)
+    
+    # Publish WebSocket event to notify the other party
+    from app.core.redis_client import redis_client
+    # Determine recipient: if sender is client, notify helper; if sender is helper, notify client
+    recipient_id = helper_id if sender_id == thread.client_id else thread.client_id
+    await redis_client.publish_event(
+        user_id=recipient_id,
+        event_type="new_message",
+        payload={"thread_id": thread.id, "task_id": task_id, "sender_id": sender_id}
+    )
+    
     return new_msg
 
 @router.get("/{task_id}/threads/{helper_id}/messages", response_model=List[TaskMessageResponse])
