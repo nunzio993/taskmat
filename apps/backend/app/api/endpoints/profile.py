@@ -35,6 +35,7 @@ async def read_users_me(
         name=user.name,
         phone=user.phone,
         bio=user.bio,
+        languages=user.languages if user.languages else ['Italiano'],
         hourly_rate=user.hourly_rate,
         is_available=user.is_available,
         skills=user.skills if user.skills else [],
@@ -58,6 +59,8 @@ async def update_user_me(
         current_user.phone = user_in.phone
     if user_in.bio is not None:
         current_user.bio = user_in.bio
+    if user_in.languages is not None:
+        current_user.languages = user_in.languages
     if user_in.hourly_rate is not None:
         current_user.hourly_rate = user_in.hourly_rate
     if user_in.is_available is not None:
@@ -93,6 +96,7 @@ async def update_user_me(
         name=user.name,
         phone=user.phone,
         bio=user.bio,
+        languages=user.languages if user.languages else ['Italiano'],
         hourly_rate=user.hourly_rate,
         is_available=user.is_available,
         skills=user.skills if user.skills else [],
@@ -170,6 +174,7 @@ async def become_helper(
         name=user.name,
         phone=user.phone,
         bio=user.bio,
+        languages=user.languages if user.languages else ['Italiano'],
         hourly_rate=user.hourly_rate,
         is_available=user.is_available,
         skills=user.skills if user.skills else [],

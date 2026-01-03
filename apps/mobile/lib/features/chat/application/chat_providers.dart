@@ -1,6 +1,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api_client.dart';
+import '../../../core/websocket_service.dart';
 import '../../home/domain/task.dart'; // For TaskMessage if needed, or re-export
 import '../domain/chat_models.dart';
 
@@ -61,16 +62,26 @@ final myTaskThreadProvider = FutureProvider.family<ChatThread, int>((ref, taskId
   return service.getOrCreateThread(taskId);
 });
 
-// Messages for a thread (Auto-refresh)
+// Messages for a thread - WebSocket + fallback polling
 final threadMessagesProvider = FutureProvider.autoDispose.family<List<TaskMessage>, int>((ref, threadId) async {
   final service = ref.watch(chatServiceProvider);
   
-  // Poll every 3 seconds for liveliness
-  // In prod use WebSockets/SSE
-  final timer = Stream.periodic(const Duration(seconds: 3)).listen((_) {
+  // Listen for WebSocket new_message events for THIS thread
+  final wsSubscription = webSocketService.events
+      .where((event) => event.type == 'new_message' && event.payload['thread_id'] == threadId)
+      .listen((_) {
+    ref.invalidateSelf();
+  });
+  
+  // Fallback polling every 5 seconds (in case WS disconnects)
+  final timer = Stream.periodic(const Duration(seconds: 5)).listen((_) {
      ref.invalidateSelf();
   });
-  ref.onDispose(() => timer.cancel());
+  
+  ref.onDispose(() {
+    wsSubscription.cancel();
+    timer.cancel();
+  });
 
   return service.getMessages(threadId);
 });

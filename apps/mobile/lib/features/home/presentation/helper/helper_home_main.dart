@@ -506,7 +506,7 @@ class _OpportunitiesPreviewSection extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.go('/find-work'),
+        onTap: () => context.go('/find-work?focusTaskId=${task.id}'),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.teal.shade50))),

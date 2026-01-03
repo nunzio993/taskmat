@@ -14,8 +14,8 @@ Dio apiClient(Ref ref) {
   // We can add platform detection later. For Web default (localhost) works.
   final dio = Dio(BaseOptions(
     baseUrl: 'http://localhost:8000', 
-    connectTimeout: const Duration(seconds: 5),
-    receiveTimeout: const Duration(seconds: 3),
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 15),
   ));
 
   dio.interceptors.add(InterceptorsWrapper(
@@ -35,14 +35,15 @@ Dio apiClient(Ref ref) {
     onError: (DioException e, handler) async {
       print('API Error: ${e.message} ${e.response?.statusCode}');
       if (e.response?.statusCode == 401) {
-        // Token expired or invalid
-        // We use provider container to access auth provider and logout
-        // Since we are inside a provider, we can use 'ref' captured in closure
-        try {
-          // Avoid awaiting execution loop if we are already in build phase (unlikely here as it is async callback)
-          await ref.read(authProvider.notifier).logout();
-        } catch (err) {
-          print('Error during auto-logout: $err');
+        // Only logout on 401 if it's NOT the /profile/me endpoint
+        // (profile/me 401 is handled separately in auth_provider build())
+        final path = e.requestOptions.path;
+        if (!path.contains('/profile/me') && !path.contains('/auth/')) {
+          try {
+            await ref.read(authProvider.notifier).logout();
+          } catch (err) {
+            print('Error during auto-logout: $err');
+          }
         }
       }
       return handler.next(e);

@@ -36,6 +36,18 @@ class Task {
     this.offers = const [],
   });
 
+  /// Returns the accepted offer (the assigned helper's offer)
+  TaskOffer? get acceptedOffer {
+    if (selectedOfferId == null) return null;
+    return offers.where((o) => o.id == selectedOfferId).firstOrNull;
+  }
+
+  /// Returns the name of the assigned helper
+  String? get assignedHelperName => acceptedOffer?.helperName;
+
+  /// Returns the ID of the assigned helper
+  int? get assignedHelperId => acceptedOffer?.helperId;
+
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
       id: json['id'],

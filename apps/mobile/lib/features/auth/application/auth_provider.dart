@@ -1,4 +1,5 @@
 
+import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
@@ -20,6 +21,7 @@ class UserSession {
   final Map<String, bool> readiness; // e.g. {'stripe': true, 'profile': true}
   final double matchingRadius;
   final List<String> categories;
+  final List<String> languages; // Spoken languages
   final Set<String> urgencyFilters; // 'NOW', 'TODAY', 'SLOT'
   final double minPrice;
   final Map<String, bool> notifications;
@@ -36,6 +38,7 @@ class UserSession {
     this.readiness = const {'stripe': true, 'profile': true, 'categories': false},
     this.matchingRadius = 15.0,
     this.categories = const [],
+    this.languages = const ['Italiano'],
     this.urgencyFilters = const {'NOW', 'TODAY', 'SLOT'},
     this.minPrice = 0.0,
     this.notifications = const {'match': true, 'chat': true, 'updates': true},
@@ -54,6 +57,7 @@ class UserSession {
     Map<String, bool>? readiness,
     double? matchingRadius,
     List<String>? categories,
+    List<String>? languages,
     Set<String>? urgencyFilters,
     double? minPrice,
     Map<String, bool>? notifications,
@@ -70,6 +74,7 @@ class UserSession {
       readiness: readiness ?? this.readiness,
       matchingRadius: matchingRadius ?? this.matchingRadius,
       categories: categories ?? this.categories,
+      languages: languages ?? this.languages,
       urgencyFilters: urgencyFilters ?? this.urgencyFilters,
       minPrice: minPrice ?? this.minPrice,
       notifications: notifications ?? this.notifications,
@@ -93,11 +98,18 @@ class Auth extends _$Auth {
       
       final user = _parseUser(response.data);
       return user;
+    } on DioException catch (e) {
+      // Only clear token on 401 Unauthorized
+      if (e.response?.statusCode == 401) {
+        await prefs.remove('auth_token');
+        return null;
+      }
+      // For network errors, keep the token and rethrow
+      // This prevents logout on temporary network issues
+      rethrow;
     } catch (e) {
-      // If error (e.g. 401), clear token
-      // We can check status code strictly, but for MVP clearing on error is safer to avoid stuck state
-      await prefs.remove('auth_token');
-      return null;
+      // Unknown error, don't clear token
+      rethrow;
     }
   }
 
@@ -122,8 +134,10 @@ class Auth extends _$Auth {
       await _persistUser(user);
 
       state = AsyncData(user);
-    } catch (e, st) {
-      state = AsyncError(e, st);
+    } catch (e) {
+      // On error, we reset to null (not logged in) instead of keeping error state
+      // This prevents the router/UI from getting stuck in an error view
+      state = const AsyncData(null);
       rethrow;
     }
   }
@@ -132,7 +146,7 @@ class Auth extends _$Auth {
     state = const AsyncLoading();
     try {
       final dio = ref.read(apiClientProvider);
-      final response = await dio.post('/auth/register', data: {
+      await dio.post('/auth/register', data: {
         'email': email,
         'password': password,
         'role': role,
@@ -140,11 +154,10 @@ class Auth extends _$Auth {
         'last_name': lastName,
       });
       
-      // Auto-login after register? Or just return success.
-      // Let's login immediately for better UX
+      // Auto-login after register
       await login(email, password); 
-    } catch (e, st) {
-       state = AsyncError(e, st);
+    } catch (e) {
+       state = const AsyncData(null);
        rethrow;
     }
   }
@@ -152,7 +165,8 @@ class Auth extends _$Auth {
   Future<void> updateProfile({
     String? name, String? email, String? phone, String? bio, double? hourlyRate,
     bool? isAvailable, double? matchingRadius, List<String>? categories,
-    double? minPrice, Set<String>? urgencyFilters, Map<String, bool>? notifications,
+    List<String>? languages, double? minPrice, Set<String>? urgencyFilters, 
+    Map<String, bool>? notifications,
   }) async {
     final current = state.value;
     if (current == null) return;
@@ -169,6 +183,7 @@ class Auth extends _$Auth {
       if (bio != null) updateData['bio'] = bio;
       if (hourlyRate != null) updateData['hourly_rate'] = hourlyRate;
       if (isAvailable != null) updateData['is_available'] = isAvailable;
+      if (languages != null) updateData['languages'] = languages;
       
       final prefs = <String, dynamic>{};
       if (matchingRadius != null) prefs['radius'] = matchingRadius;
@@ -232,6 +247,7 @@ class Auth extends _$Auth {
       readiness: Map<String, bool>.from(readiness),
       matchingRadius: (prefs['radius'] as num?)?.toDouble() ?? 15.0,
       categories: List<String>.from(prefs['categories'] ?? []),
+      languages: List<String>.from(data['languages'] ?? ['Italiano']),
       minPrice: (prefs['min_price'] as num?)?.toDouble() ?? 0.0,
       urgencyFilters: Set<String>.from(prefs['urgency'] ?? []),
       notifications: Map<String, bool>.from(prefs['notifications'] ?? {}),

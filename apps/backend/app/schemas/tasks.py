@@ -33,7 +33,16 @@ class TaskBase(BaseModel):
 class TaskCreate(TaskBase):
     lat: float
     lon: float
-    client_id: int 
+    client_id: int
+    # Address fields
+    street: Optional[str] = None
+    street_number: Optional[str] = None
+    postal_code: Optional[str] = None
+    province: Optional[str] = None
+    address_extra: Optional[str] = None
+    place_id: Optional[str] = None
+    formatted_address: Optional[str] = None
+    access_notes: Optional[str] = None
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -69,9 +78,19 @@ class TaskOut(TaskBase):
     completed_at: Optional[datetime] = None
     dispute_open_until: Optional[datetime] = None
     
-    # Geo
-    lat: float
-    lon: float
+    # Geo - These are populated based on visibility rules
+    lat: Optional[float] = None  # May be exact or blurred
+    lon: Optional[float] = None  # May be exact or blurred
+    
+    # Address fields (shown only to assigned helper or owner)
+    street: Optional[str] = None
+    street_number: Optional[str] = None
+    postal_code: Optional[str] = None
+    province: Optional[str] = None
+    address_extra: Optional[str] = None
+    place_id: Optional[str] = None
+    formatted_address: Optional[str] = None
+    access_notes: Optional[str] = None
     
     # Relationships (Optional based on query)
     offers: List[TaskOfferResponse] = []

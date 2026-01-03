@@ -14,6 +14,7 @@ class User(Base):
     name = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
+    languages = Column(JSON, default=['Italiano'])  # Spoken languages
     
     # Helper Specific
     hourly_rate = Column(Float, nullable=True)

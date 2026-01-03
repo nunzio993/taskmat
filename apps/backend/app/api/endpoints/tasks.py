@@ -85,28 +85,20 @@ async def create_task(
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
-    # Enforce client_id from current_user
-    # task_in.client_id is trusted currently, but should be overwritten or checked
     if current_user.role != 'client':
-         # Depending on logic, helpers might not create tasks. 
-         # MVP: Allow if role is client
-         # if current_user.role != 'client': raise HTTPException(403)
          pass
 
-    # Force client_id to matches token owner
-    # But for MVP demo we might have 'client_id' in body. 
-    # Let's override it to ensure security.
+    # Force client_id to match token owner
     task_in.client_id = current_user.id
-    # Verify client exists (optional for MVP speed but good practice)
+    
     result = await db.execute(select(User).where(User.id == task_in.client_id))
     client = result.scalars().first()
     if not client:
-        # Auto-create a test user if not exists for easier testing
         client = User(id=task_in.client_id, contact=f"user_{task_in.client_id}", display_name="Test User", role="client")
         db.add(client)
         await db.flush()
     
-    # Create Task
+    # Create exact location WKT
     location_wkt = f'POINT({task_in.lon} {task_in.lat})'
     
     new_task = Task(
@@ -117,9 +109,17 @@ async def create_task(
         urgency=task_in.urgency,
         client_id=task_in.client_id,
         location=location_wkt,
-        # New Phase 2 Fields
-        address_line=task_in.address_line,
+        # Address Fields
+        street=task_in.street,
+        street_number=task_in.street_number,
         city=task_in.city,
+        postal_code=task_in.postal_code,
+        province=task_in.province,
+        address_extra=task_in.address_extra,
+        place_id=task_in.place_id,
+        formatted_address=task_in.formatted_address,
+        address_line=task_in.address_line,
+        access_notes=task_in.access_notes,
         scheduled_at=task_in.scheduled_at,
         status=TaskStatus.POSTED,
         version=1
@@ -129,8 +129,19 @@ async def create_task(
     await db.commit()
     await db.refresh(new_task)
     
-    return _to_task_out(new_task)
-
+    # Calculate public_location with PostGIS Grid Snap (500m in WebMercator)
+    from sqlalchemy import text
+    await db.execute(text("""
+        UPDATE tasks 
+        SET public_location = ST_Transform(
+            ST_SnapToGrid(ST_Transform(location, 3857), 500),
+            4326
+        )
+        WHERE id = :task_id
+    """), {"task_id": new_task.id})
+    await db.commit()
+    await db.refresh(new_task)
+    
     return _to_task_out(new_task)
 
 @router.get("/nearby", response_model=List[schemas.TaskOut])
@@ -172,7 +183,8 @@ async def get_nearby_tasks(
         offer_stmt = select(TaskOffer).where(TaskOffer.task_id == t.id).options(selectinload(TaskOffer.helper))
         offer_res = await db.execute(offer_stmt)
         offers_list = offer_res.scalars().all()
-        final_list.append(_to_task_out(t, explicit_offers=offers_list))
+        # Nearby tasks: always use blurred location, no exact address
+        final_list.append(_to_task_out(t, explicit_offers=offers_list, show_exact_address=False))
         
     return final_list
 
@@ -241,7 +253,8 @@ async def get_task(
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
-    logger.info(f"DEBUG_EP: get_task called for id={task_id} by user={current_user.id}")
+    from app.models.models import TaskAssignment
+    
     stmt = select(Task).where(Task.id == task_id).options(
         selectinload(Task.proofs)
     )
@@ -250,44 +263,68 @@ async def get_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Manual hydration for reliability
-    print(f"DEBUG: Querying offers for task.id={task.id} (type={type(task.id)})")
+    # Manual hydration for offers
     offer_stmt = select(TaskOffer).where(TaskOffer.task_id == task.id).options(selectinload(TaskOffer.helper))
     offer_res = await db.execute(offer_stmt)
     offers_list = offer_res.scalars().all()
-    print(f"DEBUG: Found {len(offers_list)} offers for task {task.id}")
-    for o in offers_list:
-        print(f"   -> Offer {o.id}: task_id={o.task_id}, price={o.price_cents}")
     
-    return _to_task_out(task, explicit_offers=offers_list)
+    # Determine visibility: exact address shown to owner or assigned helper (status >= ASSIGNED)
+    is_owner = current_user.id == task.client_id
+    
+    # Check if user is the assigned helper
+    is_assigned_helper = False
+    if current_user.role == 'helper' and task.status in ['assigned', 'in_progress', 'in_confirmation', 'completed']:
+        # Check assignment
+        assign_result = await db.execute(
+            select(TaskAssignment).where(
+                TaskAssignment.task_id == task.id,
+                TaskAssignment.helper_id == current_user.id
+            )
+        )
+        assignment = assign_result.scalars().first()
+        is_assigned_helper = assignment is not None
+    
+    show_exact = is_owner or is_assigned_helper
+    
+    return _to_task_out(task, explicit_offers=offers_list, show_exact_address=show_exact)
 
-def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None) -> schemas.TaskOut:
-    sh = to_shape(task.location)
+def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None, show_exact_address: bool = True) -> schemas.TaskOut:
+    """Convert Task model to TaskOut schema.
     
-    # DEBUG LOGGING
-    print(f"DEBUG _to_task_out: explicit_offers is None? {explicit_offers is None}")
-    print(f"DEBUG _to_task_out: explicit_offers count: {len(explicit_offers) if explicit_offers else 0}")
+    Args:
+        task: The Task model
+        explicit_offers: Pre-loaded offers (for manual hydration)
+        show_exact_address: If True, show exact location and address. If False, use public_location.
+    """
+    # Determine which location to use
+    if show_exact_address:
+        sh = to_shape(task.location)
+        lat, lon = sh.y, sh.x
+    else:
+        # Use blurred public_location if available
+        if task.public_location:
+            sh = to_shape(task.public_location)
+            lat, lon = sh.y, sh.x
+        else:
+            sh = to_shape(task.location)
+            lat, lon = sh.y, sh.x
 
     # Client Profile Construction
     client_profile = None
     if 'client' in task.__dict__ and task.client:
-         # Safely access reviews if loaded
          reviews = task.client.reviews_received if 'reviews_received' in task.client.__dict__ else []
          avg_rating = sum([r.stars for r in reviews]) / len(reviews) if reviews else 0.0
          
          client_profile = schemas.UserPublicProfile(
              id=task.client.id,
              display_name=(lambda n: f"{n.split()[0]} {n.split()[1][0]}." if n and len(n.split()) > 1 else n or f"User {task.client.id}")(task.client.name),
-             avatar_url=None, # Placeholder until User model has avatar
+             avatar_url=None,
              avg_rating=avg_rating,
              review_count=len(reviews)
          )
 
-    # Use explicit offers if provided, otherwise fallback to ORM loaded
+    # Use explicit offers if provided
     final_offers = explicit_offers if explicit_offers is not None else (task.offers if 'offers' in task.__dict__ else [])
-    print(f"DEBUG _to_task_out: final_offers count: {len(final_offers)}")
-    for o in final_offers:
-        print(f"   -> Serializing offer {o.id}, helper: {o.helper}")
 
     return schemas.TaskOut(
         id=task.id,
@@ -301,11 +338,19 @@ def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None) -> schemas
         status=task.status,
         created_at=task.created_at,
         expires_at=task.expires_at,
-        lat=sh.y,
-        lon=sh.x,
-        # New Fields
-        address_line=task.address_line,
-        city=task.city,
+        lat=lat,
+        lon=lon,
+        # Address fields - only included if show_exact_address is True
+        street=task.street if show_exact_address else None,
+        street_number=task.street_number if show_exact_address else None,
+        city=task.city,  # City is safe to show always
+        postal_code=task.postal_code if show_exact_address else None,
+        province=task.province if show_exact_address else None,
+        address_extra=task.address_extra if show_exact_address else None,
+        place_id=task.place_id if show_exact_address else None,
+        formatted_address=task.formatted_address if show_exact_address else None,
+        address_line=task.address_line if show_exact_address else None,
+        access_notes=task.access_notes if show_exact_address else None,
         scheduled_at=task.scheduled_at,
         version=task.version,
         selected_offer_id=task.selected_offer_id,
@@ -326,8 +371,8 @@ def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None) -> schemas
                 created_at=o.created_at,
                 updated_at=o.updated_at,
                 helper_name=o.helper.name if o.helper else "Unknown Helper",
-                helper_avatar_url=None, # Placeholder
-                helper_rating=0.0 # Placeholder
+                helper_avatar_url=None,
+                helper_rating=0.0
             ) for o in final_offers
         ]
     )

@@ -10,8 +10,9 @@ import 'widgets/helper_detail_pane.dart';
 
 class FindWorkScreen extends ConsumerStatefulWidget {
   final LatLng? userLocation;
+  final int? focusTaskId;
   
-  const FindWorkScreen({super.key, this.userLocation});
+  const FindWorkScreen({super.key, this.userLocation, this.focusTaskId});
 
   @override
   ConsumerState<FindWorkScreen> createState() => _FindWorkScreenState();
@@ -19,6 +20,27 @@ class FindWorkScreen extends ConsumerStatefulWidget {
 
 class _FindWorkScreenState extends ConsumerState<FindWorkScreen> {
   int? _selectedTaskId;
+  bool _initialFocusDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Set initial selection from focusTaskId if provided
+    if (widget.focusTaskId != null) {
+      _selectedTaskId = widget.focusTaskId;
+    }
+  }
+
+  @override
+  void didUpdateWidget(FindWorkScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Handle focusTaskId changes (e.g., navigating from another task preview)
+    if (widget.focusTaskId != null && widget.focusTaskId != oldWidget.focusTaskId) {
+      setState(() {
+        _selectedTaskId = widget.focusTaskId;
+      });
+    }
+  }
 
   void _onTaskSelected(Task task) {
     if (MediaQuery.of(context).size.width > 900) {
@@ -47,7 +69,9 @@ class _FindWorkScreenState extends ConsumerState<FindWorkScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Find Work'),
+        title: Text('Trova Lavoro', style: TextStyle(color: Colors.teal.shade800)),
+        backgroundColor: Colors.white,
+        iconTheme: IconThemeData(color: Colors.teal.shade600),
       ),
       body: Row(
         children: [
@@ -64,7 +88,7 @@ class _FindWorkScreenState extends ConsumerState<FindWorkScreen> {
           
           // Right: Detail Pane (Only in Split View)
           if (isSplitView) ...[
-             const VerticalDivider(width: 1),
+             VerticalDivider(width: 1, color: Colors.teal.shade100),
              Expanded(
                flex: 6,
                child: selectedTask != null 
@@ -73,13 +97,13 @@ class _FindWorkScreenState extends ConsumerState<FindWorkScreen> {
                      task: selectedTask,
                      userLocation: widget.userLocation,
                    )
-                 : const Center(
+                 : Center(
                      child: Column(
                        mainAxisAlignment: MainAxisAlignment.center,
                        children: [
-                         Icon(Icons.touch_app, size: 64, color: Colors.grey),
-                         SizedBox(height: 16),
-                         Text('Select a task to view details', style: TextStyle(color: Colors.grey)),
+                         Icon(Icons.touch_app, size: 64, color: Colors.teal.shade200),
+                         const SizedBox(height: 16),
+                         Text('Seleziona una task per vedere i dettagli', style: TextStyle(color: Colors.teal.shade400)),
                        ],
                      ),
                    ),
@@ -90,3 +114,4 @@ class _FindWorkScreenState extends ConsumerState<FindWorkScreen> {
     );
   }
 }
+

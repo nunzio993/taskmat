@@ -20,6 +20,7 @@ class CreateTaskController extends _$CreateTaskController {
     required String urgency,
     required double lat,
     required double lon,
+    Map<String, dynamic>? addressData,
   }) async {
     final dio = ref.read(apiClientProvider);
     final session = ref.read(authProvider).value;
@@ -30,7 +31,7 @@ class CreateTaskController extends _$CreateTaskController {
 
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      await dio.post('/tasks/', data: {
+      final data = <String, dynamic>{
         'title': title,
         'description': description,
         'category': category,
@@ -39,8 +40,22 @@ class CreateTaskController extends _$CreateTaskController {
         'client_id': session.id,
         'lat': lat,
         'lon': lon,
-      });
-      // Refresh the nearby tasks list so the new task appears on the map when we return
+      };
+      
+      // Add address fields if provided
+      if (addressData != null) {
+        if (addressData['street']?.isNotEmpty == true) data['street'] = addressData['street'];
+        if (addressData['street_number']?.isNotEmpty == true) data['street_number'] = addressData['street_number'];
+        if (addressData['city']?.isNotEmpty == true) data['city'] = addressData['city'];
+        if (addressData['postal_code']?.isNotEmpty == true) data['postal_code'] = addressData['postal_code'];
+        if (addressData['province']?.isNotEmpty == true) data['province'] = addressData['province'];
+        if (addressData['address_extra']?.isNotEmpty == true) data['address_extra'] = addressData['address_extra'];
+        if (addressData['place_id']?.isNotEmpty == true) data['place_id'] = addressData['place_id'];
+        if (addressData['formatted_address']?.isNotEmpty == true) data['formatted_address'] = addressData['formatted_address'];
+        if (addressData['access_notes']?.isNotEmpty == true) data['access_notes'] = addressData['access_notes'];
+      }
+      
+      await dio.post('/tasks/', data: data);
       ref.invalidate(nearbyTasksProvider);
     });
 

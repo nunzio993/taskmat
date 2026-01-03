@@ -51,10 +51,24 @@ class Task(Base):
     selected_offer_id = Column(Integer, ForeignKey("task_offers.id"), nullable=True)
     version = Column(Integer, default=1, nullable=False) # Optimistic Locking
     
-    # Location
+    # Location - Exact (private, shown only to assigned helper)
     location = Column(Geometry("POINT", srid=4326), nullable=False)
-    address_line = Column(String, nullable=True) # "Via Roma 123"
+    # Location - Blurred for public (calculated via PostGIS grid snap)
+    public_location = Column(Geometry("POINT", srid=4326), nullable=True)
+    
+    # Address Fields (precise, shown to assigned helper only)
+    street = Column(String, nullable=True)
+    street_number = Column(String, nullable=True)
     city = Column(String, nullable=True)
+    postal_code = Column(String, nullable=True)
+    province = Column(String, nullable=True)
+    address_extra = Column(String, nullable=True)  # Scala/Piano/Interno
+    place_id = Column(String, nullable=True)  # Google Places ID
+    formatted_address = Column(String, nullable=True)
+    address_line = Column(String, nullable=True)  # Legacy field
+    
+    # Access Notes (helper-only after assignment)
+    access_notes = Column(Text, nullable=True)
     
     # Scheduling - Urgency is now derived or simplified
     urgency = Column(String, nullable=True) # "asap", "scheduled"
@@ -196,16 +210,28 @@ class Message(Base):
     task = relationship("Task", back_populates="messages")
     sender = relationship("User", foreign_keys=[sender_id])
 
+class ReviewStatus(str, enum.Enum):
+    PENDING_BLIND = "pending_blind"  # Waiting for other party in blind mode
+    VISIBLE = "visible"
+    HIDDEN_BY_ADMIN = "hidden_by_admin"
+
 class Review(Base):
     __tablename__ = "reviews"
+    __table_args__ = (
+        UniqueConstraint('task_id', 'from_user_id', name='uq_review_task_from_user'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, index=True)
     from_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     to_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    from_role = Column(String, nullable=False)  # 'client' or 'helper'
     stars = Column(Integer, nullable=False)
-    comment = Column(String, nullable=True)
+    comment = Column(String(500), nullable=True)
+    tags = Column(JSON, nullable=True, default=list)  # Max 3 tags
+    status = Column(String, default=ReviewStatus.PENDING_BLIND.value, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     task = relationship("Task", back_populates="reviews")
     from_user = relationship("User", foreign_keys=[from_user_id])

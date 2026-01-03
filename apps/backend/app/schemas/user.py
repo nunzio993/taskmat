@@ -21,6 +21,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     bio: Optional[str] = None
+    languages: Optional[List[str]] = None
     hourly_rate: Optional[float] = None
     is_available: Optional[bool] = None
     skills: Optional[List[str]] = None
@@ -31,6 +32,7 @@ class UserResponse(UserBase):
     id: int
     phone: Optional[str] = None
     bio: Optional[str] = None
+    languages: List[str] = ['Italiano']
     hourly_rate: Optional[float] = None
     is_available: bool
     skills: Optional[List[str]] = []

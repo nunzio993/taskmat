@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../domain/task.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -24,18 +25,18 @@ class ClientOffersList extends StatelessWidget {
        return Container(
          padding: const EdgeInsets.all(24),
          decoration: BoxDecoration(
-           color: Colors.grey.shade50,
+           color: Colors.teal.shade50.withValues(alpha: 0.3),
            borderRadius: BorderRadius.circular(12),
-           border: Border.all(color: Colors.grey.shade200),
+           border: Border.all(color: Colors.teal.shade100),
          ),
          child: Center(
            child: Column(
              children: [
-               Icon(Icons.access_time, size: 48, color: Colors.grey.shade300),
+               Icon(Icons.access_time, size: 48, color: Colors.teal.shade200),
                const SizedBox(height: 16),
-               Text('No offers yet.', style: TextStyle(color: Colors.grey.shade500)),
+               Text('Nessuna offerta', style: TextStyle(color: Colors.teal.shade500, fontWeight: FontWeight.w500)),
                const SizedBox(height: 4),
-               const Text('Helpers near you will be notified.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+               Text('Gli helper vicini a te saranno notificati.', style: TextStyle(color: Colors.teal.shade400, fontSize: 12)),
              ],
            ),
          ),
@@ -80,7 +81,13 @@ class ClientOffersList extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(offer.helperName ?? 'Helper', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          GestureDetector(
+                            onTap: () => context.push('/u/${offer.helperId}'),
+                            child: Text(
+                              offer.helperName ?? 'Helper', 
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700, decoration: TextDecoration.underline),
+                            ),
+                          ),
                           Row(
                             children: [
                               const Icon(Icons.star, size: 14, color: Colors.amber),
@@ -90,7 +97,7 @@ class ClientOffersList extends StatelessWidget {
                         ],
                       ),
                       const Spacer(),
-                      Text('€${(offer.priceCents/100).toStringAsFixed(2)}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+                      Text('€${(offer.priceCents/100).toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.teal.shade700)),
                    ],
                  ),
                  if (offer.message.isNotEmpty) ...[
@@ -98,7 +105,7 @@ class ClientOffersList extends StatelessWidget {
                    Container(
                      padding: const EdgeInsets.all(8),
                      decoration: BoxDecoration(
-                       color: Colors.grey.shade50,
+                       color: Colors.teal.shade50.withValues(alpha: 0.3),
                        borderRadius: BorderRadius.circular(8),
                      ),
                      child: Text(offer.message, style: const TextStyle(fontSize: 13)),
@@ -139,22 +146,33 @@ class ClientOffersList extends StatelessWidget {
                              print('DEBUG: Chat button pressed for helper ${offer.helperId}');
                              onOpenChat?.call(offer.helperId);
                            },
-                           child: const Text('Chat Now'),
+                           style: OutlinedButton.styleFrom(
+                             foregroundColor: Colors.teal.shade700,
+                             side: BorderSide(color: Colors.teal.shade300),
+                           ),
+                           child: const Text('Chat'),
                          ),
                        ),
                        const SizedBox(width: 8),
                        Expanded(
                          child: OutlinedButton(
                            onPressed: () => onDeclineOffer?.call(offer),
-                           style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                           child: const Text('Decline'),
+                           style: OutlinedButton.styleFrom(
+                             foregroundColor: Colors.red.shade600,
+                             side: BorderSide(color: Colors.red.shade300),
+                           ),
+                           child: const Text('Rifiuta'),
                          ),
                        ),
                        const SizedBox(width: 8),
                        Expanded(
                          child: ElevatedButton(
                            onPressed: () => onAcceptOffer?.call(offer),
-                           child: const Text('Accept'),
+                           style: ElevatedButton.styleFrom(
+                             backgroundColor: Colors.teal.shade600,
+                             foregroundColor: Colors.white,
+                           ),
+                           child: const Text('Accetta'),
                          ),
                        ),
                      ],
@@ -170,6 +188,10 @@ class ClientOffersList extends StatelessWidget {
                            onPressed: () {
                              onOpenChat?.call(offer.helperId);
                            },
+                           style: OutlinedButton.styleFrom(
+                             foregroundColor: Colors.teal.shade700,
+                             side: BorderSide(color: Colors.teal.shade300),
+                           ),
                            child: const Text('Chat'),
                          ),
                        ),

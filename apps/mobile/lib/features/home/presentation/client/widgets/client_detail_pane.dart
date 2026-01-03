@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../../../domain/task.dart';
@@ -19,7 +20,7 @@ class ClientDetailPane extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      color: Theme.of(context).colorScheme.surface,
+      color: Colors.grey.shade50,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -35,9 +36,23 @@ class ClientDetailPane extends ConsumerWidget {
                    const SizedBox(height: 24),
                    
                    // Description
-                   Text('Description', style: Theme.of(context).textTheme.titleMedium),
+                   Row(
+                     children: [
+                       Icon(Icons.description_outlined, color: Colors.teal.shade600, size: 20),
+                       const SizedBox(width: 8),
+                       Text('Descrizione', style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.bold, fontSize: 16)),
+                     ],
+                   ),
                    const SizedBox(height: 8),
-                   Text(task.description, style: Theme.of(context).textTheme.bodyMedium),
+                   Container(
+                     padding: const EdgeInsets.all(16),
+                     decoration: BoxDecoration(
+                       color: Colors.white,
+                       borderRadius: BorderRadius.circular(12),
+                       border: Border.all(color: Colors.teal.shade100),
+                     ),
+                     child: Text(task.description, style: TextStyle(fontSize: 15, height: 1.5, color: Colors.grey.shade700)),
+                   ),
                    const SizedBox(height: 24),
                    
                    // Dynamic Status Area
@@ -55,8 +70,12 @@ class ClientDetailPane extends ConsumerWidget {
     return Container(
        padding: const EdgeInsets.all(24),
        decoration: BoxDecoration(
-         color: Theme.of(context).colorScheme.surface,
-         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+         gradient: LinearGradient(
+           colors: [Colors.teal.shade50, Colors.white],
+           begin: Alignment.topCenter,
+           end: Alignment.bottomCenter,
+         ),
+         border: Border(bottom: BorderSide(color: Colors.teal.shade100)),
        ),
        child: Column(
          crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,19 +100,25 @@ class ClientDetailPane extends ConsumerWidget {
                      ),
                    ),
                  ),
-                 Text(timeago.format(task.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                 Text(timeago.format(task.createdAt), style: TextStyle(color: Colors.teal.shade500, fontSize: 12)),
              ],
            ),
            const SizedBox(height: 16),
-           Text(task.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+           Text(task.title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.teal.shade800)),
            const SizedBox(height: 8),
-           Container(
-             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-             decoration: BoxDecoration(
-               color: Theme.of(context).colorScheme.surfaceContainerHighest,
-               borderRadius: BorderRadius.circular(8),
-             ),
-             child: Text(task.category, style: Theme.of(context).textTheme.labelSmall),
+           Row(
+             children: [
+               Container(
+                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                 decoration: BoxDecoration(
+                   color: Colors.teal.shade100,
+                   borderRadius: BorderRadius.circular(8),
+                 ),
+                 child: Text(task.category, style: TextStyle(color: Colors.teal.shade700, fontSize: 12, fontWeight: FontWeight.w500)),
+               ),
+               const SizedBox(width: 10),
+               Text('€${(task.priceCents / 100).toStringAsFixed(2)}', style: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold, fontSize: 18)),
+             ],
            ),
          ],
        ),
@@ -106,7 +131,13 @@ class ClientDetailPane extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Offers', style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Icon(Icons.local_offer, color: Colors.teal.shade600, size: 20),
+                const SizedBox(width: 8),
+                Text('Offerte', style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
             const SizedBox(height: 8),
             ClientOffersList(
               task: task,
@@ -115,7 +146,13 @@ class ClientDetailPane extends ConsumerWidget {
               onDeclineOffer: (offer) => _declineOffer(context, ref, offer),
             ),
             const SizedBox(height: 24),
-            Text('Questions', style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Icon(Icons.chat_outlined, color: Colors.teal.shade600, size: 20),
+                const SizedBox(width: 8),
+                Text('Domande', style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
             const SizedBox(height: 8),
             _buildQuestionsSection(context, ref),
           ],
@@ -125,16 +162,40 @@ class ClientDetailPane extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             Text('Assigned Helper', style: Theme.of(context).textTheme.titleMedium),
+             Row(
+               children: [
+                 Icon(Icons.person, color: Colors.teal.shade600, size: 20),
+                 const SizedBox(width: 8),
+                 Text('Helper Assegnato', style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.bold, fontSize: 16)),
+               ],
+             ),
              const SizedBox(height: 8),
-             // Mock Helper Info
-             ListTile(
-               leading: const CircleAvatar(child: Icon(Icons.person)),
-               title: const Text('Helper Name'), // Would need task.helper populated
-               subtitle: const Text('Top Rated Helper'),
-               trailing: IconButton(icon: const Icon(Icons.chat), onPressed: () {}),
-               tileColor: Colors.grey.shade50,
-               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+             Container(
+               padding: const EdgeInsets.all(16),
+               decoration: BoxDecoration(
+                 color: Colors.teal.shade50,
+                 borderRadius: BorderRadius.circular(12),
+                 border: Border.all(color: Colors.teal.shade200),
+               ),
+               child: Row(
+                 children: [
+                   CircleAvatar(backgroundColor: Colors.teal.shade200, child: Icon(Icons.person, color: Colors.teal.shade700)),
+                   const SizedBox(width: 12),
+                   const Expanded(
+                     child: Column(
+                       crossAxisAlignment: CrossAxisAlignment.start,
+                       children: [
+                         Text('Helper Name', style: TextStyle(fontWeight: FontWeight.bold)),
+                         Text('Top Rated Helper', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                       ],
+                     ),
+                   ),
+                   IconButton(
+                     icon: Icon(Icons.chat, color: Colors.teal.shade600),
+                     onPressed: () {},
+                   ),
+                 ],
+               ),
              ),
           ],
         );
@@ -163,14 +224,22 @@ class ClientDetailPane extends ConsumerWidget {
          );
       case 'completed':
          return Center(
-           child: Column(
-             children: [
-                const Icon(Icons.check_circle, size: 64, color: Colors.green),
-                const SizedBox(height: 16),
-                const Text('Task Completed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                const SizedBox(height: 8),
-                Text('Total: €${(task.priceCents/100).toStringAsFixed(2)}'),
-             ],
+           child: Container(
+             padding: const EdgeInsets.all(32),
+             decoration: BoxDecoration(
+               color: Colors.green.shade50,
+               borderRadius: BorderRadius.circular(16),
+               border: Border.all(color: Colors.green.shade200),
+             ),
+             child: Column(
+               children: [
+                  Icon(Icons.check_circle, size: 64, color: Colors.green.shade600),
+                  const SizedBox(height: 16),
+                  const Text('Task Completata!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 8),
+                  Text('Totale: €${(task.priceCents/100).toStringAsFixed(2)}', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold, fontSize: 16)),
+               ],
+             ),
            ),
          );
       default:
@@ -182,17 +251,25 @@ class ClientDetailPane extends ConsumerWidget {
     final threadsAsync = ref.watch(taskThreadsProvider(task.id));
 
     return threadsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, st) => Text('Error: $e'),
+      loading: () => Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.teal.shade400))),
+      error: (e, st) => Text('Errore: $e', style: TextStyle(color: Colors.red.shade600)),
       data: (threads) {
         if (threads.isEmpty) {
           return Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: Colors.teal.shade50,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.teal.shade100),
             ),
-            child: const Center(child: Text('No questions yet.', style: TextStyle(color: Colors.grey))),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.chat_bubble_outline, color: Colors.teal.shade300),
+                const SizedBox(width: 10),
+                Text('Nessuna domanda', style: TextStyle(color: Colors.teal.shade500)),
+              ],
+            ),
           );
         }
 
@@ -209,7 +286,13 @@ class ClientDetailPane extends ConsumerWidget {
                     ? const Icon(Icons.person_outline)
                     : null,
                 ),
-                title: Text(thread.helperName ?? 'Helper #${thread.helperId}'),
+                title: GestureDetector(
+                  onTap: () => context.push('/u/${thread.helperId}'),
+                  child: Text(
+                    thread.helperName ?? 'Helper #${thread.helperId}',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700, decoration: TextDecoration.underline),
+                  ),
+                ),
                 subtitle: Row(
                   children: [
                     const Icon(Icons.star, size: 14, color: Colors.amber),
@@ -254,13 +337,13 @@ class ClientDetailPane extends ConsumerWidget {
 
   Color colorForStatus(String status) {
      switch(status) {
-       case 'posted': return Colors.blue;
-       case 'assigned': return Colors.orange;
-       case 'in_progress': return Colors.purple;
-       case 'completed': return Colors.green;
-       case 'cancelled': return Colors.red;
-       case 'payment_failed': return Colors.red;
-       default: return Colors.grey;
+       case 'posted': return Colors.teal.shade600;
+       case 'assigned': return Colors.orange.shade600;
+       case 'in_progress': return Colors.purple.shade600;
+       case 'completed': return Colors.green.shade600;
+       case 'cancelled': return Colors.red.shade600;
+       case 'payment_failed': return Colors.red.shade600;
+       default: return Colors.grey.shade600;
      }
   }
 
@@ -430,8 +513,8 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
       );
     } else {
       // Pending offer, show action buttons
-      bgColor = Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3);
-      borderColor = Colors.grey.shade200;
+      bgColor = Colors.teal.shade50;
+      borderColor = Colors.teal.shade200;
       statusWidget = Row(
         children: [
           OutlinedButton(
@@ -439,8 +522,11 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
               widget.onDeclineOffer?.call(offer);
               Navigator.pop(context);
             },
-            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Decline'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red.shade600,
+              side: BorderSide(color: Colors.red.shade300),
+            ),
+            child: const Text('Rifiuta'),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
@@ -448,7 +534,11 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
               widget.onAcceptOffer?.call(offer);
               Navigator.pop(context);
             },
-            child: const Text('Accept'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Accetta'),
           ),
         ],
       );
@@ -466,13 +556,13 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(isOfferPending ? 'Current Offer' : 'Offer', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(isOfferPending ? 'Offerta Attuale' : 'Offerta', style: TextStyle(fontSize: 12, color: Colors.teal.shade600)),
                 Text(
                   '€${(offer.priceCents / 100).toStringAsFixed(2)}',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: isOfferAccepted ? Colors.green.shade700 : isOfferDeclined ? Colors.red.shade700 : Theme.of(context).colorScheme.primary,
+                    color: isOfferAccepted ? Colors.green.shade700 : isOfferDeclined ? Colors.red.shade700 : Colors.teal.shade700,
                   ),
                 ),
               ],
@@ -498,13 +588,27 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
           Container(
              padding: const EdgeInsets.all(16),
              decoration: BoxDecoration(
-               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+               gradient: LinearGradient(
+                 colors: [Colors.teal.shade50, Colors.white],
+                 begin: Alignment.topCenter,
+                 end: Alignment.bottomCenter,
+               ),
+               border: Border(bottom: BorderSide(color: Colors.teal.shade100)),
              ),
              child: Row(
                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                children: [
-                 Text('Chat with ${widget.thread.helperName ?? "Helper"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                 IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                 GestureDetector(
+                   onTap: () {
+                     Navigator.pop(context);
+                     context.push('/u/${widget.thread.helperId}');
+                   },
+                   child: Text(
+                     'Chat con ${widget.thread.helperName ?? "Helper"}',
+                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.teal.shade700, decoration: TextDecoration.underline),
+                   ),
+                 ),
+                 IconButton(icon: Icon(Icons.close, color: Colors.teal.shade600), onPressed: () => Navigator.pop(context)),
                ],
              ),
           ),
@@ -516,11 +620,20 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
           // Messages
           Expanded(
             child: messagesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, st) => Center(child: Text('Error: $e')),
+              loading: () => Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.teal.shade400))),
+              error: (e, st) => Center(child: Text('Errore: $e', style: TextStyle(color: Colors.red.shade600))),
               data: (messages) {
                  if (messages.isEmpty) {
-                   return const Center(child: Text('No messages.'));
+                   return Center(
+                     child: Column(
+                       mainAxisAlignment: MainAxisAlignment.center,
+                       children: [
+                         Icon(Icons.chat_bubble_outline, size: 48, color: Colors.teal.shade200),
+                         const SizedBox(height: 12),
+                         Text('Nessun messaggio', style: TextStyle(color: Colors.teal.shade400)),
+                       ],
+                     ),
+                   );
                  }
                  return ListView.builder(
                    padding: const EdgeInsets.all(16),
@@ -549,17 +662,17 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
                             decoration: BoxDecoration(
                               color: isThisOfferAccepted ? Colors.green.shade50 : Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isThisOfferAccepted ? Colors.green.shade200 : Colors.blue.shade100),
+                              border: Border.all(color: isThisOfferAccepted ? Colors.green.shade200 : Colors.teal.shade100),
                               boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+                                BoxShadow(color: Colors.teal.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))
                               ],
                             ),
                             child: Column(
                               children: [
                                 Text(
-                                  isThisOfferAccepted ? 'Accepted Offer' : (isTaskAssigned ? 'Offer' : 'New Offer'),
+                                  isThisOfferAccepted ? 'Offerta Accettata' : (isTaskAssigned ? 'Offerta' : 'Nuova Offerta'),
                                   style: TextStyle(
-                                    color: isThisOfferAccepted ? Colors.green.shade700 : Colors.blue.shade700,
+                                    color: isThisOfferAccepted ? Colors.green.shade700 : Colors.teal.shade700,
                                     fontWeight: FontWeight.bold
                                   )
                                 ),
@@ -583,8 +696,12 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
                                           widget.onDeclineOffer?.call(tempOffer);
                                           Navigator.pop(context);
                                         },
-                                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 12)),
-                                        child: const Text('Decline'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.red.shade600,
+                                          side: BorderSide(color: Colors.red.shade300),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        ),
+                                        child: const Text('Rifiuta'),
                                       ),
                                       const SizedBox(width: 8),
                                       ElevatedButton(
@@ -593,8 +710,12 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
                                           widget.onAcceptOffer?.call(tempOffer);
                                           Navigator.pop(context);
                                         },
-                                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
-                                        child: const Text('Accept'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.teal.shade600,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        ),
+                                        child: const Text('Accetta'),
                                       ),
                                     ],
                                   )
@@ -634,7 +755,7 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
                            margin: const EdgeInsets.only(bottom: 8),
                            padding: const EdgeInsets.all(10),
                            decoration: BoxDecoration(
-                             color: isMe ? Theme.of(context).colorScheme.primaryContainer : Colors.grey.shade100,
+                             color: isMe ? Colors.teal.shade100 : Colors.grey.shade100,
                              borderRadius: BorderRadius.circular(12),
                            ),
                            child: Column(
@@ -656,12 +777,43 @@ class _ChatDialogContentState extends ConsumerState<ChatDialogContent> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: Colors.teal.shade100)),
             ),
             child: Row(
               children: [
-                Expanded(child: TextField(controller: _controller, decoration: const InputDecoration(hintText: 'Reply...'))),
-                IconButton(icon: const Icon(Icons.send), onPressed: _sendMessage),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      hintText: 'Scrivi un messaggio...',
+                      hintStyle: TextStyle(color: Colors.teal.shade300),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: Colors.teal.shade200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: Colors.teal.shade200),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: Colors.teal.shade400, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade600,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: _sendMessage,
+                  ),
+                ),
               ],
             ),
           ),

@@ -59,6 +59,22 @@ class TaskCard extends StatelessWidget {
                       Text(task.client?.avgRating.toStringAsFixed(1) ?? '0.0', style: Theme.of(context).textTheme.labelSmall),
                       Text(' (${task.client?.reviewCount})', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey)),
                    ],
+                   // Show assigned helper for completed/assigned tasks
+                   if (task.assignedHelperName != null && ['assigned', 'in_progress', 'completed', 'in_confirmation'].contains(task.status)) ...[
+                     const SizedBox(width: 8),
+                     Icon(Icons.arrow_forward, size: 12, color: Colors.grey.shade400),
+                     const SizedBox(width: 8),
+                     CircleAvatar(
+                       radius: 12,
+                       backgroundColor: Colors.teal.shade100,
+                       child: Text(task.assignedHelperName![0].toUpperCase(), style: TextStyle(fontSize: 10, color: Colors.teal.shade700)),
+                     ),
+                     const SizedBox(width: 6),
+                     Text(
+                       task.assignedHelperName!,
+                       style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
+                     ),
+                   ],
                    const Spacer(),
                    _buildStatusBadge(context),
                 ],

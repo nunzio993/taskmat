@@ -249,13 +249,185 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
   }
 
   Widget _buildOfferSection(bool isAvailable) {
+    final session = ref.watch(authProvider).value;
+    final helperId = session?.id;
+    
+    // Check if helper already has an offer on this task
+    TaskOffer? myOffer;
+    if (helperId != null && widget.task.offers.isNotEmpty) {
+      final found = widget.task.offers.where((o) => o.helperId == helperId);
+      if (found.isNotEmpty) {
+        myOffer = found.first;
+      }
+    }
+    
+    return Column(
+      children: [
+        // Show existing offer if present
+        if (myOffer != null)
+          _buildExistingOfferCard(myOffer),
+        
+        // Show offer form only if no offer yet and task is posted
+        if (myOffer == null)
+          _buildNewOfferForm(isAvailable),
+      ],
+    );
+  }
+  
+  Widget _buildExistingOfferCard(TaskOffer offer) {
+    MaterialColor statusColor;
+    String statusLabel;
+    IconData statusIcon;
+    
+    switch (offer.status.toLowerCase()) {
+      case 'pending':
+        statusColor = Colors.orange;
+        statusLabel = 'IN ATTESA';
+        statusIcon = Icons.hourglass_top;
+        break;
+      case 'accepted':
+        statusColor = Colors.green;
+        statusLabel = 'ACCETTATA';
+        statusIcon = Icons.check_circle;
+        break;
+      case 'rejected':
+        statusColor = Colors.red;
+        statusLabel = 'RIFIUTATA';
+        statusIcon = Icons.cancel;
+        break;
+      default:
+        statusColor = Colors.grey;
+        statusLabel = offer.status.toUpperCase();
+        statusIcon = Icons.info;
+    }
+    
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.teal.shade50,
-            Colors.teal.shade100.withOpacity(0.3),
+          colors: [statusColor.shade50, statusColor.shade100.withValues(alpha: 0.3)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: statusColor.shade200),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: statusColor.shade600,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(statusIcon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'La tua offerta',
+                      style: TextStyle(
+                        color: statusColor.shade800,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: statusColor.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                          color: statusColor.shade700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '€${(offer.priceCents / 100).toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: statusColor.shade800,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                  if (offer.priceCents != widget.task.priceCents)
+                    Text(
+                      'Prezzo cliente: €${(widget.task.priceCents / 100).toStringAsFixed(0)}',
+                      style: TextStyle(
+                        color: statusColor.shade500,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          if (offer.message.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                offer.message,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+              ),
+            ),
           ],
+          // Show retract button only for pending offers
+          if (offer.status.toLowerCase() == 'pending') ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  // TODO: Implement retract offer
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Funzione ritira offerta non ancora implementata')),
+                  );
+                },
+                icon: const Icon(Icons.undo),
+                label: const Text('Ritira offerta'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  foregroundColor: statusColor.shade700,
+                  side: BorderSide(color: statusColor.shade300),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildNewOfferForm(bool isAvailable) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.teal.shade50, Colors.teal.shade100.withValues(alpha: 0.3)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -289,7 +461,7 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
                     ),
                   ),
                   Text(
-                    'Prezzo offerta  €${_priceCtrl.text.isNotEmpty ? _priceCtrl.text : (widget.task.priceCents / 100).toStringAsFixed(0)}',
+                    'Prezzo cliente: €${(widget.task.priceCents / 100).toStringAsFixed(0)}',
                     style: TextStyle(
                       color: Colors.teal.shade600,
                       fontSize: 13,
@@ -301,33 +473,52 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
           ),
           const SizedBox(height: 20),
           
+          // Accept at client price button
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 16),
+            child: ElevatedButton.icon(
+              onPressed: isAvailable && !_isMakingOffer ? _acceptAtClientPrice : null,
+              icon: const Icon(Icons.check_circle),
+              label: Text('Accetta a €${(widget.task.priceCents / 100).toStringAsFixed(0)}'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                backgroundColor: Colors.green.shade600,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+          
+          // Divider
+          Row(
+            children: [
+              Expanded(child: Divider(color: Colors.teal.shade200)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text('oppure', style: TextStyle(color: Colors.teal.shade500, fontSize: 12)),
+              ),
+              Expanded(child: Divider(color: Colors.teal.shade200)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
           // Price Input
           TextField(
             controller: _priceCtrl,
             decoration: InputDecoration(
-              labelText: 'Prezzo offerta',
+              labelText: 'Proponi un prezzo diverso',
               labelStyle: TextStyle(color: Colors.teal.shade600),
               prefixIcon: Icon(Icons.euro, color: Colors.teal.shade500),
               prefixText: '€ ',
               prefixStyle: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold),
               filled: true,
               fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.teal.shade200),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.teal.shade200),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.teal.shade500, width: 2),
-              ),
-              disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.teal.shade200)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.teal.shade200)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.teal.shade500, width: 2)),
+              disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
             ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             enabled: isAvailable,
@@ -345,75 +536,77 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
               hintStyle: TextStyle(color: Colors.grey.shade400),
               filled: true,
               fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.teal.shade200),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.teal.shade200),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.teal.shade500, width: 2),
-              ),
-              disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.teal.shade200)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.teal.shade200)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.teal.shade500, width: 2)),
+              disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
             ),
             maxLines: 2,
             enabled: isAvailable,
           ),
           const SizedBox(height: 16),
           
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: isAvailable && !_isMakingOffer ? _sendOffer : null,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    backgroundColor: Colors.teal.shade600,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+          // Send Offer Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isAvailable && !_isMakingOffer ? _sendOffer : null,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                backgroundColor: Colors.teal.shade600,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: _isMakingOffer 
+                ? SizedBox(
+                    width: 20, 
+                    height: 20, 
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.teal.shade100),
                     ),
-                  ),
-                  child: _isMakingOffer 
-                    ? SizedBox(
-                        width: 20, 
-                        height: 20, 
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.teal.shade100),
-                        ),
-                      )
-                    : const Text('Invia offerta', style: TextStyle(fontWeight: FontWeight.w600)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: isAvailable ? () {
-                  // Ritira offerta logic
-                } : null,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  foregroundColor: Colors.teal.shade600,
-                  side: BorderSide(color: isAvailable ? Colors.teal.shade400 : Colors.grey.shade300),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Ritira offerta'),
-              ),
-            ],
+                  )
+                : const Text('Invia offerta personalizzata', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
           ),
         ],
       ),
     );
+  }
+  
+  Future<void> _acceptAtClientPrice() async {
+    setState(() => _isMakingOffer = true);
+    
+    try {
+      await ref.read(taskServiceProvider.notifier).createOffer(
+        widget.task.id,
+        widget.task.priceCents,
+        'Accetto al prezzo proposto',
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Offerta inviata! Il cliente riceverà la tua proposta.'),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Errore: $e'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isMakingOffer = false);
+      }
+    }
   }
   
   Widget _buildHeader(BuildContext context, Task task) {

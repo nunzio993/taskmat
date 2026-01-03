@@ -7,9 +7,12 @@ import '../../application/tasks_provider.dart';
 import '../../application/task_service.dart';
 import '../../../chat/application/chat_providers.dart';
 import '../../../chat/domain/chat_models.dart';
+import '../../../profile/application/user_service.dart';
+import '../../../reviews/presentation/review_dialog.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'widgets/client_offers_list.dart';
 import 'widgets/client_detail_pane.dart'; // For ChatDialogContent
+import 'widgets/task_review_button.dart';
 
 // Enums for UI State
 enum TaskFilter { active, history }
@@ -34,9 +37,11 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Tasks'),
+        title: Text('Le Mie Task', style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        iconTheme: IconThemeData(color: Colors.teal.shade600),
         bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(60),
+            preferredSize: const Size.fromHeight(70),
             child: _buildFilterSegment()
         ),
       ),
@@ -51,10 +56,19 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
                    width: 350, 
                    child: _buildTaskList(filtered)
                  ),
-                 const VerticalDivider(width: 1),
+                 VerticalDivider(width: 1, color: Colors.teal.shade100),
                  Expanded(
                    child: _selectedTaskId == null 
-                     ? const Center(child: Text('Select a task'))
+                     ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.touch_app, size: 64, color: Colors.teal.shade200),
+                            const SizedBox(height: 16),
+                            Text('Seleziona una task', style: TextStyle(color: Colors.teal.shade400)),
+                          ],
+                        ),
+                      )
                      : _buildTaskDetail(tasks.firstWhere((t) => t.id == _selectedTaskId))
                  ),
                ],
@@ -65,8 +79,8 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
                : _buildTaskDetail(tasks.firstWhere((t) => t.id == _selectedTaskId));
           }
         },
-        error: (e, s) => Center(child: Text('Error: $e')),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('Errore: $e', style: TextStyle(color: Colors.red.shade600))),
+        loading: () => Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.teal.shade400))),
       ),
     );
   }
@@ -80,20 +94,63 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
   }
 
   Widget _buildFilterSegment() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SegmentedButton<TaskFilter>(
-        segments: const [
-          ButtonSegment(value: TaskFilter.active, label: Text('Active')),
-          ButtonSegment(value: TaskFilter.history, label: Text('History')),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.teal.shade50, Colors.white],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() { _filter = TaskFilter.active; _selectedTaskId = null; }),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: _filter == TaskFilter.active ? Colors.teal.shade600 : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.teal.shade200),
+                ),
+                child: Center(
+                  child: Text(
+                    'Attive',
+                    style: TextStyle(
+                      color: _filter == TaskFilter.active ? Colors.white : Colors.teal.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() { _filter = TaskFilter.history; _selectedTaskId = null; }),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: _filter == TaskFilter.history ? Colors.teal.shade600 : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.teal.shade200),
+                ),
+                child: Center(
+                  child: Text(
+                    'Cronologia',
+                    style: TextStyle(
+                      color: _filter == TaskFilter.history ? Colors.white : Colors.teal.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
-        selected: {_filter},
-        onSelectionChanged: (newSelection) {
-           setState(() {
-             _filter = newSelection.first;
-             _selectedTaskId = null; // Reset selection on filter change
-           });
-        },
       ),
     );
   }
@@ -104,9 +161,21 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.assignment_outlined, size: 64, color: Colors.grey[300]),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.assignment_outlined, size: 48, color: Colors.teal.shade300),
+            ),
             const SizedBox(height: 16),
-            Text('No tasks yet', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+            Text('Nessuna task', style: TextStyle(color: Colors.teal.shade600, fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Text(
+              _filter == TaskFilter.active ? 'Crea una nuova task per iniziare' : 'Nessuna task completata',
+              style: TextStyle(color: Colors.teal.shade400, fontSize: 14),
+            ),
           ],
         ),
       );
@@ -129,16 +198,16 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
           borderRadius: BorderRadius.circular(16),
           child: Container(
             decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4) : Colors.white,
+              color: isSelected ? Colors.teal.shade50 : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent, 
-                width: 2
+                color: isSelected ? Colors.teal.shade400 : Colors.teal.shade100, 
+                width: isSelected ? 2 : 1
               ),
               boxShadow: [
                 if (!isSelected)
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.teal.withValues(alpha: 0.08),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -180,10 +249,10 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
                   children: [
                     Text(
                       '€${(task.priceCents/100).toStringAsFixed(2)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18, 
                         fontWeight: FontWeight.w800,
-                        color: Colors.black87
+                        color: Colors.teal.shade700
                       ),
                     ),
                     if (task.status == 'posted')
@@ -228,12 +297,17 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: Text(
-                    timeago.format(task.createdAt), 
-                    style: TextStyle(fontSize: 10, color: Colors.grey[400])
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      timeago.format(task.createdAt), 
+                      style: TextStyle(fontSize: 10, color: Colors.grey[400])
+                    ),
+                    // Review button for completed tasks
+                    if (task.status == 'completed')
+                      TaskReviewButton(task: task),
+                  ],
                 ),
               ],
             ),
@@ -314,6 +388,12 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
             // Actions Card (like Helper)
             if (['assigned', 'in_progress', 'in_confirmation'].contains(task.status)) ...[
                _ActiveTaskActions(task: task),
+               const SizedBox(height: 24),
+            ],
+            
+            // Review Section for completed tasks
+            if (task.status == 'completed') ...[
+               _ReviewSection(task: task),
                const SizedBox(height: 24),
             ],
             
@@ -398,9 +478,9 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       boxShadow: [
-        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+        BoxShadow(color: Colors.teal.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4)),
       ],
-      border: Border.all(color: Colors.grey.shade100),
+      border: Border.all(color: Colors.teal.shade100),
     );
 
     if (!_isEditing) {
@@ -431,21 +511,21 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
                      child: Container(
                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                        decoration: BoxDecoration(
-                         color: Colors.blue.shade50,
+                         color: Colors.teal.shade50,
                          borderRadius: BorderRadius.circular(8),
                        ),
                        child: Row(
                          children: [
-                           Icon(Icons.edit, size: 16, color: Colors.blue.shade700),
+                           Icon(Icons.edit, size: 16, color: Colors.teal.shade700),
                            const SizedBox(width: 6),
-                           Text('Edit', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
+                           Text('Edit', style: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold)),
                          ],
                        ),
                      ),
                    )
                ],
              ),
-             const Divider(height: 32),
+             Divider(height: 32, color: Colors.teal.shade100),
              
              // Key Info Grid
              Row(
@@ -460,33 +540,53 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
              const SizedBox(height: 24),
 
              // Description
-             Text('Description', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.grey)),
+             Row(
+               children: [
+                 Icon(Icons.description_outlined, size: 16, color: Colors.teal.shade500),
+                 const SizedBox(width: 6),
+                 Text('Descrizione', style: TextStyle(fontSize: 12, color: Colors.teal.shade600, fontWeight: FontWeight.w500)),
+               ],
+             ),
              const SizedBox(height: 8),
-             Text(
-               widget.task.description, 
-               style: const TextStyle(fontSize: 16, height: 1.5, color: Colors.black87),
+             Container(
+               padding: const EdgeInsets.all(14),
+               decoration: BoxDecoration(
+                 color: Colors.teal.shade50.withValues(alpha: 0.3),
+                 borderRadius: BorderRadius.circular(10),
+                 border: Border.all(color: Colors.teal.shade100),
+               ),
+               child: Text(
+                 widget.task.description, 
+                 style: TextStyle(fontSize: 15, height: 1.5, color: Colors.grey.shade700),
+               ),
              ),
              
              const SizedBox(height: 24),
              
              // Photos Section (Placeholder)
-             Text('Photos', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.grey)),
+             Row(
+               children: [
+                 Icon(Icons.photo_outlined, size: 16, color: Colors.teal.shade500),
+                 const SizedBox(width: 6),
+                 Text('Foto', style: TextStyle(fontSize: 12, color: Colors.teal.shade600, fontWeight: FontWeight.w500)),
+               ],
+             ),
              const SizedBox(height: 12),
              if (widget.task.proofs.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
+                    color: Colors.teal.shade50.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200)
+                    border: Border.all(color: Colors.teal.shade100)
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.photo_outlined, color: Colors.grey.shade400),
+                      Icon(Icons.photo_outlined, color: Colors.teal.shade300),
                       const SizedBox(width: 8),
-                      Text('No photos attached', style: TextStyle(color: Colors.grey.shade500)),
+                      Text('Nessuna foto', style: TextStyle(color: Colors.teal.shade400)),
                     ],
                   ),
                 )
@@ -600,19 +700,19 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
   Widget _buildStatusChip(String status) {
     Color color;
     switch(status.toLowerCase()) {
-      case 'posted': color = Colors.blue; break;
+      case 'posted': color = Colors.teal; break;
       case 'assigned': color = Colors.orange; break;
-      case 'in_progress': return Container( // Special handling if needed or just color
+      case 'in_progress': return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purple.withOpacity(0.2))),
-          child: const Text('IN_PROGRESS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
+          decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.purple.withValues(alpha: 0.2))),
+          child: const Text('IN CORSO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
       );
       case 'completed': color = Colors.green; break;
       default: color = Colors.grey;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(0.2))),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withValues(alpha: 0.2))),
       child: Text(status.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
     );
   }
@@ -622,9 +722,9 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-           Icon(icon, size: 16, color: Colors.grey),
+           Icon(icon, size: 16, color: Colors.teal.shade500),
            const SizedBox(width: 4),
-           Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+           Text(label, style: TextStyle(fontSize: 12, color: Colors.teal.shade600)),
         ]),
         const SizedBox(height: 4),
         if (isBadge)
@@ -634,7 +734,7 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
              child: Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red.shade700)),
            )
         else
-           Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+           Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.teal.shade800), maxLines: 1, overflow: TextOverflow.ellipsis),
       ],
     );
   }
@@ -782,11 +882,11 @@ class _OffersSectionState extends ConsumerState<_OffersSection> {
           children: [
             Row(
               children: [
-                Icon(Icons.local_offer_outlined, color: Colors.grey[700]),
+                Icon(Icons.local_offer_outlined, color: Colors.teal.shade600),
                 const SizedBox(width: 8),
                 Text(
-                  'Offers (${widget.task.offers.length})', 
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
+                  'Offerte (${widget.task.offers.length})', 
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade800)
                 ),
               ],
             ),
@@ -856,47 +956,59 @@ class _ActiveTaskActions extends ConsumerWidget {
      final isInProgress = status == 'in_progress';
      final isAssigned = status == 'assigned';
      
-     return Card(
-       color: Colors.blue.shade50,
-       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-       child: Padding(
-         padding: const EdgeInsets.all(16),
-         child: Column(
-           crossAxisAlignment: CrossAxisAlignment.stretch,
-           children: [
-              Text(
-                isInConfirmation ? 'Completion Requested' : isInProgress ? 'Job In Progress' : 'Job Assigned',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), 
-                textAlign: TextAlign.center
-              ),
-              const SizedBox(height: 16),
-              
+     return Container(
+       padding: const EdgeInsets.all(20),
+       decoration: BoxDecoration(
+         color: Colors.white,
+         borderRadius: BorderRadius.circular(16),
+         border: Border.all(color: Colors.teal.shade100),
+         boxShadow: [BoxShadow(color: Colors.teal.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))],
+       ),
+       child: Column(
+         crossAxisAlignment: CrossAxisAlignment.stretch,
+         children: [
+           Row(
+             mainAxisAlignment: MainAxisAlignment.center,
+             children: [
+               Icon(
+                 isInConfirmation ? Icons.hourglass_empty : isInProgress ? Icons.play_circle : Icons.assignment_turned_in,
+                 color: isInConfirmation ? Colors.purple.shade600 : Colors.teal.shade600,
+               ),
+               const SizedBox(width: 8),
+               Text(
+                 isInConfirmation ? 'In Attesa Conferma' : isInProgress ? 'Lavoro in Corso' : 'Lavoro Assegnato',
+                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade800),
+               ),
+             ],
+           ),
+           const SizedBox(height: 16),
+           
+           OutlinedButton.icon(
+             onPressed: () => _openChatWithHelper(context, ref),
+             icon: Icon(Icons.chat_bubble_outline, color: Colors.teal.shade600),
+             label: Text('Chat con Helper', style: TextStyle(color: Colors.teal.shade600)),
+             style: OutlinedButton.styleFrom(
+               padding: const EdgeInsets.symmetric(vertical: 14),
+               side: BorderSide(color: Colors.teal.shade300),
+               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+             ),
+           ),
+           
+           if (isInConfirmation) ...[
+              const SizedBox(height: 12),
               ElevatedButton.icon(
-                onPressed: () => _openChatWithHelper(context, ref),
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('Chat with Helper'),
+                onPressed: () => _confirmCompletion(context, ref),
+                icon: const Icon(Icons.check_circle),
+                label: const Text('Conferma Completamento'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  elevation: 0,
-                  side: BorderSide(color: Colors.grey.shade300)
+                  backgroundColor: Colors.teal.shade600,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
-              
-              if (isInConfirmation) ...[
-                 const SizedBox(height: 12),
-                 ElevatedButton(
-                   onPressed: () => _confirmCompletion(context, ref),
-                   style: ElevatedButton.styleFrom(
-                     backgroundColor: Colors.purple,
-                     foregroundColor: Colors.white,
-                     padding: const EdgeInsets.symmetric(vertical: 16),
-                   ),
-                   child: const Text('Confirm Completion'),
-                 ),
-              ]
-           ],
-         ),
+           ]
+         ],
        ),
      );
   }
@@ -919,9 +1031,9 @@ class _ChatThreadsSection extends ConsumerWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+              BoxShadow(color: Colors.teal.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4)),
             ],
-            border: Border.all(color: Colors.grey.shade100),
+            border: Border.all(color: Colors.teal.shade100),
           ),
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -929,9 +1041,9 @@ class _ChatThreadsSection extends ConsumerWidget {
             children: [
                Row(
                  children: [
-                   const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.black87),
+                   Icon(Icons.chat_bubble_outline, size: 20, color: Colors.teal.shade600),
                    const SizedBox(width: 8),
-                   Text('Messages', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                   Text('Messaggi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade800)),
                  ],
                ),
               const SizedBox(height: 16),
@@ -949,23 +1061,29 @@ class _ChatThreadsSection extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Colors.teal.shade50.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.teal.shade100),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: Colors.blue.shade100,
+          backgroundColor: Colors.teal.shade100,
           child: Text(
             (thread.helperName?.isNotEmpty == true ? thread.helperName! : 'Helper').substring(0, 1).toUpperCase(),
-            style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold),
           ),
         ),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(thread.helperName ?? 'Helper', style: const TextStyle(fontWeight: FontWeight.bold)),
+            GestureDetector(
+              onTap: () => context.push('/u/${thread.helperId}'),
+              child: Text(
+                thread.helperName ?? 'Helper',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700, decoration: TextDecoration.underline),
+              ),
+            ),
             if (thread.messages.isNotEmpty)
                Text(
                  timeago.format(thread.messages.last.createdAt, locale: 'en_short'),
@@ -993,6 +1111,144 @@ class _ChatThreadsSection extends ConsumerWidget {
              );
         },
       ),
+    );
+  }
+}
+
+class _ReviewSection extends ConsumerWidget {
+  final Task task;
+  const _ReviewSection({required this.task});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<ReviewStatus>(
+      future: ref.read(userServiceProvider.notifier).getTaskReviewStatus(task.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.teal.shade100),
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final status = snapshot.data;
+        final hasReviewed = status?.hasReviewed ?? false;
+        final myReview = status?.myReview;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(color: Colors.amber.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
+            border: Border.all(color: Colors.amber.shade200),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.star_rounded, color: Colors.amber.shade600),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Recensione',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.amber.shade800),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              if (hasReviewed && myReview != null) ...[
+                // Show submitted review
+                Row(
+                  children: [
+                    ...List.generate(myReview.stars, (i) =>
+                      Icon(Icons.star_rounded, size: 24, color: Colors.amber.shade500)
+                    ),
+                    ...List.generate(5 - myReview.stars, (i) =>
+                      Icon(Icons.star_outline_rounded, size: 24, color: Colors.grey.shade300)
+                    ),
+                  ],
+                ),
+                if (myReview.comment != null && myReview.comment!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    '"${myReview.comment}"',
+                    style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey.shade700),
+                  ),
+                ],
+                if (myReview.tags.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: myReview.tags.map((tag) => Chip(
+                      label: Text(tag, style: const TextStyle(fontSize: 12)),
+                      backgroundColor: Colors.amber.shade50,
+                    )).toList(),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(
+                      status!.reviewsVisible ? Icons.visibility : Icons.hourglass_empty,
+                      size: 16,
+                      color: status.reviewsVisible ? Colors.green : Colors.grey,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      status.reviewsVisible
+                          ? 'Recensione visibile'
+                          : 'In attesa della recensione dell\'helper',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: status.reviewsVisible ? Colors.green.shade700 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                // Show review button
+                Text(
+                  'Come è stata l\'esperienza con ${task.assignedHelperName ?? "l\'helper"}?',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final result = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => ReviewDialog(
+                        taskId: task.id,
+                        targetUserName: task.assignedHelperName ?? 'Helper',
+                        isReviewingAsClient: true,
+                      ),
+                    );
+                    if (result == true) {
+                      ref.invalidate(myCreatedTasksProvider);
+                    }
+                  },
+                  icon: const Icon(Icons.star_outline_rounded),
+                  label: const Text('Lascia una Recensione'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber.shade500,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -194,6 +194,9 @@ async def send_message(
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(deps.get_db)
 ):
+    from app.core.redis_client import redis_client
+    import json
+    
     # Verify participation
     thread_result = await db.execute(select(TaskThread).where(TaskThread.id == thread_id))
     thread = thread_result.scalars().first()
@@ -213,4 +216,17 @@ async def send_message(
     db.add(message)
     await db.commit()
     await db.refresh(message)
+    
+    # Notify the other party via WebSocket
+    recipient_id = thread.helper_id if current_user.id == thread.client_id else thread.client_id
+    await redis_client.publish(
+        f"user:{recipient_id}",
+        json.dumps({
+            "type": "new_message",
+            "thread_id": thread_id,
+            "sender_id": current_user.id,
+            "message_id": message.id,
+        })
+    )
+    
     return message

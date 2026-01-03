@@ -13,46 +13,76 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authProvider).value;
-    if (session == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (session == null) {
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.teal.shade400)),
+        ),
+      );
+    }
 
     return DefaultTabController(
       length: 4,
       child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
         appBar: AppBar(
-          title: const Text('My Profile'),
+          title: Text('Il mio Profilo', style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.teal.shade600),
           actions: [
-             IconButton(icon: const Icon(Icons.support_agent), onPressed: () {}, tooltip: 'Support'),
+            IconButton(
+              icon: Icon(Icons.settings, color: Colors.teal.shade600),
+              onPressed: () {},
+              tooltip: 'Impostazioni',
+            ),
           ],
         ),
         body: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ProfileSummaryCard(
-                session: session,
-                onEdit: () {},
-                onLogout: () => ref.read(authProvider.notifier).logout(),
+            // Profile Header Card
+            Container(
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: ProfileSummaryCard(
+                  session: session,
+                  onEdit: () {},
+                  onLogout: () => ref.read(authProvider.notifier).logout(),
+                ),
               ),
             ),
-            const TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelPadding: EdgeInsets.symmetric(horizontal: 20),
-              tabs: [
-                Tab(text: 'Public'),
-                Tab(text: 'Private'),
-                Tab(text: 'Payments'),
-                Tab(text: 'Security'),
-              ],
-            ),
-            const Expanded(
-              child: TabBarView(
-                children: [
-                  PublicTab(),
-                  PrivateTab(),
-                  PaymentsTab(),
-                  SecurityTab(),
+            // Tabs
+            Container(
+              color: Colors.white,
+              child: TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 20),
+                labelColor: Colors.teal.shade700,
+                unselectedLabelColor: Colors.grey.shade500,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                indicatorColor: Colors.teal.shade600,
+                indicatorWeight: 3,
+                tabs: const [
+                  Tab(text: 'Pubblico'),
+                  Tab(text: 'Privato'),
+                  Tab(text: 'Pagamenti'),
+                  Tab(text: 'Sicurezza'),
                 ],
+              ),
+            ),
+            Expanded(
+              child: Container(
+                color: Colors.grey.shade50,
+                child: const TabBarView(
+                  children: [
+                    PublicTab(),
+                    PrivateTab(),
+                    PaymentsTab(),
+                    SecurityTab(),
+                  ],
+                ),
               ),
             ),
           ],
@@ -61,4 +91,3 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 }
-

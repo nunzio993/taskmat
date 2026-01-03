@@ -22,6 +22,7 @@ import '../features/profile/presentation/edit_personal_profile_screen.dart';
 import '../features/home/presentation/helper/find_work_screen.dart';
 import '../features/profile/presentation/preferences_screen.dart';
 import '../features/home/presentation/helper/helper_my_jobs_page.dart';
+import '../features/profile/presentation/public_user_profile_screen.dart';
 
 part 'router.g.dart';
 
@@ -81,7 +82,11 @@ GoRouter router(Ref ref) {
           ),
           GoRoute(
             path: '/find-work',
-            builder: (context, state) => const FindWorkScreen(),
+            builder: (context, state) {
+              final focusTaskIdStr = state.uri.queryParameters['focusTaskId'];
+              final focusTaskId = focusTaskIdStr != null ? int.tryParse(focusTaskIdStr) : null;
+              return FindWorkScreen(focusTaskId: focusTaskId);
+            },
           ),
           GoRoute(
             path: '/preferences',
@@ -112,6 +117,14 @@ GoRouter router(Ref ref) {
           GoRoute(path: '/profile/notifications', builder: (context, state) => const NotificationSettingsScreen()),
           GoRoute(path: '/profile/help', builder: (context, state) => const HelpCenterScreen()),
           GoRoute(
+            path: '/u/:userId',
+            builder: (context, state) {
+              final userIdStr = state.pathParameters['userId'];
+              final userId = int.tryParse(userIdStr ?? '') ?? 0;
+              return PublicUserProfileScreen(userId: userId);
+            },
+          ),
+          GoRoute(
             path: '/chat',
             builder: (context, state) {
               final extras = state.extra as Map<String, dynamic>;
@@ -127,3 +140,4 @@ GoRouter router(Ref ref) {
     ],
   );
 }
+
