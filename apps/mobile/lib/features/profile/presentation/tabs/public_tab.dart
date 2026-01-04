@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/application/auth_provider.dart';
+import '../../application/user_service.dart';
 
 class PublicTab extends ConsumerStatefulWidget {
   const PublicTab({super.key});
@@ -51,6 +52,9 @@ class _PublicTabState extends ConsumerState<PublicTab> {
     final session = ref.watch(authProvider).value!;
     final isHelper = session.role == 'helper';
     final isClient = session.role == 'client';
+    
+    // Fetch real stats from API
+    final statsAsync = ref.watch(userStatsProvider(session.id));
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -139,39 +143,76 @@ class _PublicTabState extends ConsumerState<PublicTab> {
         const SizedBox(height: 24),
         
         // ═══════════════════════════════════════════════════════════════
-        // READ-ONLY SECTION
+        // READ-ONLY SECTION - REAL DATA FROM API
         // ═══════════════════════════════════════════════════════════════
         _buildSectionHeader('Statistiche', false, null),
         const SizedBox(height: 16),
         
-        // Rating & Member Since
+        // Rating & Reviews from API
         _buildCard(
           title: 'Reputazione',
           icon: Icons.star_outline,
-          child: Column(
-            children: [
-              _buildStatRow(Icons.star, 'Rating Medio', '4.9 ⭐', Colors.amber.shade600),
-              Divider(color: Colors.teal.shade100),
-              _buildStatRow(Icons.rate_review, 'Recensioni', '12', Colors.teal.shade600),
-              Divider(color: Colors.teal.shade100),
-              _buildStatRow(Icons.calendar_today, 'Membro da', 'Gennaio 2024', Colors.teal.shade600),
-            ],
+          child: statsAsync.when(
+            loading: () => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.teal.shade400)),
+              ),
+            ),
+            error: (_, __) => Column(
+              children: [
+                _buildStatRow(Icons.star, 'Rating Medio', '—', Colors.grey.shade400),
+                Divider(color: Colors.teal.shade100),
+                _buildStatRow(Icons.rate_review, 'Recensioni', '—', Colors.grey.shade400),
+              ],
+            ),
+            data: (stats) {
+              final rating = stats?.averageRating ?? 0.0;
+              final reviewCount = stats?.reviewsCount ?? 0;
+              
+              return Column(
+                children: [
+                  _buildStatRow(
+                    Icons.star, 
+                    'Rating Medio', 
+                    reviewCount > 0 ? '${rating.toStringAsFixed(1)} ⭐' : 'Nuovo utente',
+                    reviewCount > 0 ? Colors.amber.shade600 : Colors.grey.shade500,
+                  ),
+                  Divider(color: Colors.teal.shade100),
+                  _buildStatRow(Icons.rate_review, 'Recensioni', '$reviewCount', Colors.teal.shade600),
+                ],
+              );
+            },
           ),
         ),
         
         const SizedBox(height: 16),
         
-        // Role-specific Stats
+        // Role-specific Stats from API
         if (isClient)
           _buildCard(
             title: 'Statistiche Cliente',
             icon: Icons.assignment_outlined,
-            child: Column(
-              children: [
-                _buildStatRow(Icons.check_circle, 'Task Completate', '8', Colors.green.shade600),
-                Divider(color: Colors.teal.shade100),
-                _buildStatRow(Icons.cancel, 'Task Cancellate', '1', Colors.red.shade400),
-              ],
+            child: statsAsync.when(
+              loading: () => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.teal.shade400)),
+                ),
+              ),
+              error: (_, __) => Column(
+                children: [
+                  _buildStatRow(Icons.check_circle, 'Task Completate', '—', Colors.grey.shade400),
+                ],
+              ),
+              data: (stats) {
+                final completed = stats?.tasksCompleted ?? 0;
+                return Column(
+                  children: [
+                    _buildStatRow(Icons.check_circle, 'Task Completate', '$completed', Colors.green.shade600),
+                  ],
+                );
+              },
             ),
           ),
         
@@ -179,14 +220,26 @@ class _PublicTabState extends ConsumerState<PublicTab> {
           _buildCard(
             title: 'Statistiche Helper',
             icon: Icons.handyman_outlined,
-            child: Column(
-              children: [
-                _buildStatRow(Icons.check_circle, 'Lavori Completati', '45', Colors.green.shade600),
-                Divider(color: Colors.teal.shade100),
-                _buildStatRow(Icons.cancel, 'Lavori Cancellati', '2', Colors.red.shade400),
-                Divider(color: Colors.teal.shade100),
-                _buildStatRow(Icons.speed, 'Tempo Risposta Medio', '< 1 ora', Colors.teal.shade600),
-              ],
+            child: statsAsync.when(
+              loading: () => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.teal.shade400)),
+                ),
+              ),
+              error: (_, __) => Column(
+                children: [
+                  _buildStatRow(Icons.check_circle, 'Lavori Completati', '—', Colors.grey.shade400),
+                ],
+              ),
+              data: (stats) {
+                final completed = stats?.tasksCompleted ?? 0;
+                return Column(
+                  children: [
+                    _buildStatRow(Icons.check_circle, 'Lavori Completati', '$completed', Colors.green.shade600),
+                  ],
+                );
+              },
             ),
           ),
         

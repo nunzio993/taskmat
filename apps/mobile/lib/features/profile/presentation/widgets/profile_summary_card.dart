@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../auth/application/auth_provider.dart';
+import '../../application/user_service.dart';
 
-class ProfileSummaryCard extends StatelessWidget {
+class ProfileSummaryCard extends ConsumerWidget {
   final UserSession session;
   final VoidCallback onEdit;
   final VoidCallback onLogout;
@@ -15,8 +17,11 @@ class ProfileSummaryCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isHelper = session.role == 'helper';
+    
+    // Fetch user stats from public profile
+    final statsAsync = ref.watch(userStatsProvider(session.id));
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -129,20 +134,60 @@ class ProfileSummaryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // Rating (if available)
-                    Row(
-                      children: [
-                        Icon(Icons.star, size: 16, color: Colors.amber.shade600),
-                        const SizedBox(width: 4),
-                        Text(
-                          '4.9',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
-                        ),
-                        Text(
-                          ' (12 recensioni)',
-                          style: TextStyle(fontSize: 12, color: Colors.teal.shade500),
-                        ),
-                      ],
+                    // Rating (from API)
+                    statsAsync.when(
+                      loading: () => Row(
+                        children: [
+                          Icon(Icons.star, size: 16, color: Colors.amber.shade600),
+                          const SizedBox(width: 4),
+                          SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.teal.shade400),
+                            ),
+                          ),
+                        ],
+                      ),
+                      error: (_, __) => Row(
+                        children: [
+                          Icon(Icons.star_border, size: 16, color: Colors.grey.shade400),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Nuovo utente',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ),
+                      data: (stats) {
+                        if (stats == null || stats.reviewsCount == 0) {
+                          return Row(
+                            children: [
+                              Icon(Icons.star_border, size: 16, color: Colors.grey.shade400),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Nuovo utente',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Icon(Icons.star, size: 16, color: Colors.amber.shade600),
+                            const SizedBox(width: 4),
+                            Text(
+                              stats.averageRating.toStringAsFixed(1),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
+                            ),
+                            Text(
+                              ' (${stats.reviewsCount} ${stats.reviewsCount == 1 ? "recensione" : "recensioni"})',
+                              style: TextStyle(fontSize: 12, color: Colors.teal.shade500),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),

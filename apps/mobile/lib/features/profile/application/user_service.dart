@@ -295,3 +295,20 @@ class ReviewData {
     );
   }
 }
+
+// Provider to fetch user stats by ID
+@riverpod
+Future<PublicUserStats?> userStats(Ref ref, int userId) async {
+  try {
+    final dio = ref.read(apiClientProvider);
+    final response = await dio.get('/users/$userId/public');
+    final data = response.data;
+    if (data['stats'] != null) {
+      return PublicUserStats.fromJson(data['stats']);
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+

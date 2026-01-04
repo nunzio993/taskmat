@@ -30,19 +30,6 @@ class _PublicUserProfileScreenState extends ConsumerState<PublicUserProfileScree
 
   @override
   Widget build(BuildContext context) {
-    // Redirect if self
-    final currentUser = ref.watch(authProvider).valueOrNull;
-    if (currentUser != null && currentUser.id == widget.userId) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.go('/profile');
-      });
-      return Scaffold(
-        backgroundColor: Colors.grey.shade50,
-        body: Center(
-          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.teal.shade400)),
-        ),
-      );
-    }
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,

@@ -10,6 +10,8 @@ import '../../application/task_service.dart';
 import '../../../../features/chat/application/chat_providers.dart';
 import '../../../../features/chat/domain/chat_models.dart';
 import '../client/widgets/client_detail_pane.dart';
+import '../../../../features/reviews/presentation/review_dialog.dart';
+import '../../../../features/profile/application/user_service.dart';
 
 enum TaskFilter { active, history }
 
@@ -742,7 +744,7 @@ class _ActiveJobActionsState extends ConsumerState<_ActiveJobActions> {
               ),
             ),
                
-          if (isCompleted)
+          if (isCompleted) ...[
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green.shade200)),
@@ -755,8 +757,109 @@ class _ActiveJobActionsState extends ConsumerState<_ActiveJobActions> {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            // Review button for helper
+            _HelperReviewButton(task: widget.task),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// Review button for helpers to review clients
+class _HelperReviewButton extends ConsumerWidget {
+  final Task task;
+  const _HelperReviewButton({required this.task});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<ReviewStatus>(
+      future: ref.read(userServiceProvider.notifier).getTaskReviewStatus(task.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.amber.shade600))),
+                const SizedBox(width: 10),
+                Text('Caricamento recensione...', style: TextStyle(color: Colors.amber.shade700)),
+              ],
+            ),
+          );
+        }
+
+        final status = snapshot.data;
+        if (status != null && status.hasReviewed) {
+          // Already reviewed - show status
+          final stars = status.myReview?.stars ?? 0;
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ...List.generate(stars, (i) => Icon(Icons.star_rounded, size: 18, color: Colors.amber.shade600)),
+                ...List.generate(5 - stars, (i) => Icon(Icons.star_border_rounded, size: 18, color: Colors.amber.shade300)),
+                const SizedBox(width: 10),
+                if (status.reviewsVisible)
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle, size: 16, color: Colors.green.shade500),
+                      const SizedBox(width: 4),
+                      Text('Pubblicata', style: TextStyle(color: Colors.green.shade600, fontWeight: FontWeight.w500)),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Icon(Icons.hourglass_empty, size: 16, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Text('In attesa del cliente', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                    ],
+                  ),
+              ],
+            ),
+          );
+        }
+
+        // Can review - show button
+        return ElevatedButton.icon(
+          onPressed: () async {
+            final result = await showDialog<bool>(
+              context: context,
+              builder: (_) => ReviewDialog(
+                taskId: task.id,
+                targetUserName: task.clientName ?? 'Cliente',
+                isReviewingAsClient: false,
+              ),
+            );
+
+            if (result == true) {
+              ref.invalidate(myAssignedTasksProvider);
+            }
+          },
+          icon: const Icon(Icons.star_outline_rounded),
+          label: const Text('Lascia una Recensione'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.amber.shade500,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      },
     );
   }
 }

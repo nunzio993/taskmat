@@ -48,6 +48,9 @@ class Task {
   /// Returns the ID of the assigned helper
   int? get assignedHelperId => acceptedOffer?.helperId;
 
+  /// Returns the name of the client who posted the task
+  String? get clientName => client?.displayName;
+
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
       id: json['id'],
