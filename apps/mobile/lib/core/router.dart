@@ -38,12 +38,15 @@ GoRouter router(Ref ref) {
       final session = authState.valueOrNull;
       final isLoggingIn = state.matchedLocation == '/login';
       final isSplash = state.matchedLocation == '/';
+      final isPublicProfile = state.matchedLocation.startsWith('/u/');
 
       if (isLoading || hasError) return null; // Stay on splash or current
 
       final isRegisterHelper = state.matchedLocation == '/register-helper';
 
       if (session == null) {
+        // Allow public profile without login (optional, if you want public access)
+        // For now, require login for all authenticated routes
         return (isLoggingIn || isRegisterHelper) ? null : '/login';
       }
 

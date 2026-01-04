@@ -4,7 +4,7 @@ from sqlalchemy import select, func, desc, or_
 from app.api import deps
 from app.core import database
 from app.models.user import User
-from app.models.models import Task, TaskAssignment, Review, TaskStatus, UserRole
+from app.models.models import Task, TaskAssignment, Review, TaskStatus, UserRole, ReviewStatus
 from app.schemas.public_user import PublicUserResponse, PublicUserStats
 from app.schemas.user import UserResponse # Re-use for reviews if needed, or simple dict
 from typing import List, Optional
@@ -47,7 +47,10 @@ async def read_public_profile(
         select(
             func.count(Review.id),
             func.avg(Review.stars)
-        ).filter(Review.to_user_id == user_id)
+        ).filter(
+            Review.to_user_id == user_id,
+            Review.status == ReviewStatus.VISIBLE.value
+        )
     )
     r_count, r_avg = reviews_stats.one()
     r_count = r_count or 0
@@ -108,7 +111,10 @@ async def read_public_reviews(
     query = (
         select(Review, User.name)
         .join(User, User.id == Review.from_user_id)
-        .filter(Review.to_user_id == user_id)
+        .filter(
+            Review.to_user_id == user_id,
+            Review.status == ReviewStatus.VISIBLE.value
+        )
         .order_by(desc(Review.created_at))
         .offset(offset)
         .limit(size)
@@ -119,7 +125,10 @@ async def read_public_reviews(
     
     # Total count
     count_res = await db.execute(
-        select(func.count(Review.id)).filter(Review.to_user_id == user_id)
+        select(func.count(Review.id)).filter(
+            Review.to_user_id == user_id,
+            Review.status == ReviewStatus.VISIBLE.value
+        )
     )
     total = count_res.scalar() or 0
     

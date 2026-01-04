@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api import deps
-from app.models.models import Task, TaskThread, TaskMessage
+from app.models.models import Task, TaskThread, TaskMessage, Review, ReviewStatus
 from app.models.user import User
 from app.schemas import chat as schemas
 
@@ -117,12 +117,15 @@ async def get_task_threads(
         helper_result = await db.execute(select(User).where(User.id == thread.helper_id))
         helper = helper_result.scalars().first()
         
-        # Calculate rating from reviews
+        # Calculate rating from visible reviews only
         rating_result = await db.execute(
             select(
                 sql_func.avg(Review.stars).label("avg_rating"),
                 sql_func.count(Review.id).label("review_count")
-            ).where(Review.to_user_id == thread.helper_id)
+            ).where(
+                Review.to_user_id == thread.helper_id,
+                Review.status == ReviewStatus.VISIBLE.value
+            )
         )
         rating_row = rating_result.first()
         avg_rating = float(rating_row.avg_rating) if rating_row and rating_row.avg_rating else None

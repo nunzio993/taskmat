@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../auth/application/auth_provider.dart';
 
 class ProfileSummaryCard extends StatelessWidget {
@@ -81,12 +82,26 @@ class ProfileSummaryCard extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            session.name,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal.shade800,
+                          child: GestureDetector(
+                            onTap: () => context.push('/u/${session.id}'),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    session.name,
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal.shade800,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: Colors.teal.shade300,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(Icons.open_in_new, size: 16, color: Colors.teal.shade400),
+                              ],
                             ),
                           ),
                         ),

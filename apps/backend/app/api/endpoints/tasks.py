@@ -10,7 +10,7 @@ from typing import List
 
 from app.api import deps
 from app.api import deps
-from app.models.models import Task, TaskStatus, TaskOffer, TaskThread, TaskMessage, TaskProof, OfferStatus
+from app.models.models import Task, TaskStatus, TaskOffer, TaskThread, TaskMessage, TaskProof, OfferStatus, Review, ReviewStatus
 from app.models.user import User
 from app.schemas import tasks as schemas
 from app.schemas.task_offers import TaskOfferCreate, TaskOfferResponse
@@ -57,7 +57,7 @@ async def diag_full_task(task_id: int, db: AsyncSession = Depends(deps.get_db)):
         return {"error": "Task not found"}
     
     # 2. Manual hydration
-    offer_stmt = select(TaskOffer).where(TaskOffer.task_id == task.id).options(selectinload(TaskOffer.helper))
+    offer_stmt = select(TaskOffer).where(TaskOffer.task_id == task.id).options(selectinload(TaskOffer.helper).selectinload(User.reviews_received))
     offer_res = await db.execute(offer_stmt)
     offers_list = offer_res.scalars().all()
     
@@ -180,7 +180,7 @@ async def get_nearby_tasks(
     # Manual hydration for offers (same pattern as /tasks/created)
     final_list = []
     for t in tasks:
-        offer_stmt = select(TaskOffer).where(TaskOffer.task_id == t.id).options(selectinload(TaskOffer.helper))
+        offer_stmt = select(TaskOffer).where(TaskOffer.task_id == t.id).options(selectinload(TaskOffer.helper).selectinload(User.reviews_received))
         offer_res = await db.execute(offer_stmt)
         offers_list = offer_res.scalars().all()
         # Nearby tasks: always use blurred location, no exact address
@@ -208,7 +208,7 @@ async def get_created_tasks(
     # Manual hydration hack to ensure offers are visible
     final_list = []
     for t in tasks:
-        offer_stmt = select(TaskOffer).where(TaskOffer.task_id == t.id).options(selectinload(TaskOffer.helper))
+        offer_stmt = select(TaskOffer).where(TaskOffer.task_id == t.id).options(selectinload(TaskOffer.helper).selectinload(User.reviews_received))
         offer_res = await db.execute(offer_stmt)
         offers_list = offer_res.scalars().all()
         print(f"DEBUG /tasks/created: Task {t.id} has {len(offers_list)} offers")
@@ -264,7 +264,7 @@ async def get_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     # Manual hydration for offers
-    offer_stmt = select(TaskOffer).where(TaskOffer.task_id == task.id).options(selectinload(TaskOffer.helper))
+    offer_stmt = select(TaskOffer).where(TaskOffer.task_id == task.id).options(selectinload(TaskOffer.helper).selectinload(User.reviews_received))
     offer_res = await db.execute(offer_stmt)
     offers_list = offer_res.scalars().all()
     
@@ -312,19 +312,46 @@ def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None, show_exact
     # Client Profile Construction
     client_profile = None
     if 'client' in task.__dict__ and task.client:
+         # Only count VISIBLE reviews
          reviews = task.client.reviews_received if 'reviews_received' in task.client.__dict__ else []
-         avg_rating = sum([r.stars for r in reviews]) / len(reviews) if reviews else 0.0
+         visible_reviews = [r for r in reviews if r.status == ReviewStatus.VISIBLE.value]
+         avg_rating = sum([r.stars for r in visible_reviews]) / len(visible_reviews) if visible_reviews else 0.0
          
          client_profile = schemas.UserPublicProfile(
              id=task.client.id,
              display_name=(lambda n: f"{n.split()[0]} {n.split()[1][0]}." if n and len(n.split()) > 1 else n or f"User {task.client.id}")(task.client.name),
              avatar_url=None,
              avg_rating=avg_rating,
-             review_count=len(reviews)
+             review_count=len(visible_reviews)
          )
 
     # Use explicit offers if provided
     final_offers = explicit_offers if explicit_offers is not None else (task.offers if 'offers' in task.__dict__ else [])
+
+    # Build offer responses with helper ratings
+    offer_responses = []
+    for o in final_offers:
+        helper_rating = 0.0
+        helper_review_count = 0
+        if o.helper and hasattr(o.helper, 'reviews_received'):
+            helper_reviews = [r for r in o.helper.reviews_received if r.status == ReviewStatus.VISIBLE.value]
+            if helper_reviews:
+                helper_rating = sum([r.stars for r in helper_reviews]) / len(helper_reviews)
+                helper_review_count = len(helper_reviews)
+        
+        offer_responses.append(schemas.TaskOfferResponse(
+            id=o.id,
+            task_id=o.task_id,
+            helper_id=o.helper_id,
+            status=o.status,
+            price_cents=o.price_cents,
+            message=o.message,
+            created_at=o.created_at,
+            updated_at=o.updated_at,
+            helper_name=o.helper.name if o.helper else "Unknown Helper",
+            helper_avatar_url=None,
+            helper_rating=helper_rating
+        ))
 
     return schemas.TaskOut(
         id=task.id,
@@ -360,21 +387,7 @@ def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None, show_exact
         completed_at=task.completed_at,
         dispute_open_until=task.dispute_open_until,
         proofs=[schemas.TaskProofResponse.from_orm(p) for p in task.proofs] if 'proofs' in task.__dict__ else [],
-        offers=[
-            schemas.TaskOfferResponse(
-                id=o.id,
-                task_id=o.task_id,
-                helper_id=o.helper_id,
-                status=o.status,
-                price_cents=o.price_cents,
-                message=o.message,
-                created_at=o.created_at,
-                updated_at=o.updated_at,
-                helper_name=o.helper.name if o.helper else "Unknown Helper",
-                helper_avatar_url=None,
-                helper_rating=0.0
-            ) for o in final_offers
-        ]
+        offers=offer_responses
     )
 
 @router.patch("/{task_id}", response_model=schemas.TaskOut)
