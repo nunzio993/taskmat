@@ -1,11 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../auth/application/auth_provider.dart';
 import '../../application/user_service.dart';
+import '../../../../core/api_client.dart';
 
 final paymentsProvider = FutureProvider.autoDispose<List<PaymentMethod>>((ref) async {
   final service = ref.read(userServiceProvider.notifier);
   return service.getPaymentMethods();
+});
+
+// Stripe Connect Status Provider
+final stripeStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final dio = ref.read(apiClientProvider);
+  try {
+    final response = await dio.get('/stripe/connect/status');
+    return response.data;
+  } catch (e) {
+    return {'connected': false, 'onboarding_complete': false};
+  }
 });
 
 class PaymentsTab extends ConsumerWidget {
@@ -113,8 +127,7 @@ class PaymentsTab extends ConsumerWidget {
   // HELPER PAYMENTS
   // ═══════════════════════════════════════════════════════════════════════
   Widget _buildHelperPayments(BuildContext context, WidgetRef ref) {
-    // Mock Stripe status
-    const stripeStatus = 'COMPLETE'; // NOT_STARTED, IN_PROGRESS, COMPLETE
+    final stripeStatusAsync = ref.watch(stripeStatusProvider);
     
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -122,7 +135,21 @@ class PaymentsTab extends ConsumerWidget {
         _buildSectionHeader('Stripe Connect'),
         const SizedBox(height: 12),
         
-        _buildStripeConnectCard(context, stripeStatus),
+        stripeStatusAsync.when(
+          data: (status) {
+            String stripeStatus;
+            if (status['onboarding_complete'] == true) {
+              stripeStatus = 'COMPLETE';
+            } else if (status['connected'] == true) {
+              stripeStatus = 'IN_PROGRESS';
+            } else {
+              stripeStatus = 'NOT_STARTED';
+            }
+            return _buildStripeConnectCard(context, ref, stripeStatus);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => _buildStripeConnectCard(context, ref, 'NOT_STARTED'),
+        ),
         
         const SizedBox(height: 24),
         
@@ -159,7 +186,7 @@ class PaymentsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildStripeConnectCard(BuildContext context, String status) {
+  Widget _buildStripeConnectCard(BuildContext context, WidgetRef ref, String status) {
     Color statusColor;
     IconData statusIcon;
     String statusText;
@@ -235,7 +262,7 @@ class PaymentsTab extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () => _startStripeOnboarding(context, ref),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.teal.shade600,
                 foregroundColor: Colors.white,
@@ -245,9 +272,47 @@ class PaymentsTab extends ConsumerWidget {
               child: Text(buttonText),
             ),
           ),
+          if (status != 'COMPLETE') ...[
+            const SizedBox(height: 8),
+            Text(
+              'Per ricevere pagamenti devi configurare Stripe',
+              style: TextStyle(fontSize: 11, color: Colors.teal.shade500),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );
+  }
+  
+  Future<void> _startStripeOnboarding(BuildContext context, WidgetRef ref) async {
+    try {
+  final dio = ref.read(apiClientProvider);
+      final response = await dio.post('/stripe/connect/onboard');
+      final onboardingUrl = response.data['onboarding_url'];
+      
+      if (onboardingUrl != null) {
+        final uri = Uri.parse(onboardingUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Non riesco ad aprire il link'), backgroundColor: Colors.red.shade600),
+            );
+          }
+        }
+      }
+    } on DioException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.response?.data?['detail'] ?? 'Errore Stripe'), 
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════

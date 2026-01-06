@@ -28,6 +28,14 @@ class User(Base):
     
     # { 'stripe': bool, 'profile': bool }
     readiness_status = Column(JSON, default={})
+    
+    # Admin Access
+    is_admin = Column(Boolean, default=False)
+    admin_role = Column(String, nullable=True)  # 'SUPER_ADMIN', 'ADMIN', 'SUPPORT'
+    
+    # Stripe Connect (for helpers)
+    stripe_account_id = Column(String, nullable=True)  # acct_xxx
+    stripe_onboarding_complete = Column(Boolean, default=False)
 
     # Relationships (to match old model expectations)
     tasks_created = relationship("Task", back_populates="client")

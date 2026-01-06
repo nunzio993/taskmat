@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import tasks, auth, profile, helper, chat, ws, users, reviews
+from app.api.endpoints import tasks, auth, profile, helper, chat, ws, users, reviews, admin, stripe
 from app.core.redis_client import redis_client
 from app.core.database import engine, Base
 
@@ -17,6 +17,8 @@ app.add_middleware(
         "http://127.0.0.1:3001",
         "http://localhost:3002",
         "http://127.0.0.1:3002",
+        "http://localhost:3003",  # Admin panel
+        "http://127.0.0.1:3003",
         "http://localhost",
         "http://127.0.0.1"
     ],
@@ -45,6 +47,8 @@ app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(reviews.router, prefix="", tags=["reviews"])
 app.include_router(ws.router, tags=["websocket"])
+app.include_router(admin.router)  # Admin panel endpoints
+app.include_router(stripe.router)  # Stripe Connect endpoints
 
 @app.get("/health")
 async def health_check():

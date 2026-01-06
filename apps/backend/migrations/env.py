@@ -14,6 +14,7 @@ from app.models.models import Task, TaskAssignment, Payment, Message, Review, Sy
 from app.models.address import Address
 from app.models.payment_method import PaymentMethod
 from app.models.user_document import UserDocument
+from app.models.category_settings import CategorySettings, CategorySettingsVersion, GlobalSettingsVersion
 from app.core.config import settings
 
 config = context.config

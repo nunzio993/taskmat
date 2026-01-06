@@ -6,6 +6,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "emergency_key_rotation_2026" # Change in prod
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080 # 7 days
+    
+    # Stripe Configuration
+    STRIPE_SECRET_KEY: str = "sk_test_PLACEHOLDER"  # Set in .env
+    STRIPE_PUBLISHABLE_KEY: str = "pk_test_PLACEHOLDER"  # Set in .env
+    STRIPE_WEBHOOK_SECRET: str = "whsec_PLACEHOLDER"  # Set in .env
+    STRIPE_PLATFORM_FEE_PERCENT: float = 15.0  # Default platform fee
 
     class Config:
         env_file = ".env"
