@@ -7,8 +7,12 @@ from app.api import deps
 from app.core import security, database
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse
+from pydantic import BaseModel
 
 router = APIRouter()
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 @router.post("/register")
 async def register(user_in: UserCreate, db: AsyncSession = Depends(database.get_db)):
@@ -34,7 +38,6 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(database.get_
     await db.refresh(user)
     
     # Manually construct response to avoid lazy loading issues with async ORM
-    # response_model removed to avoid secondary validation error
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -54,15 +57,68 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(database.get_
 
 @router.post("/login")
 async def login(user_in: UserLogin, db: AsyncSession = Depends(database.get_db)):
+    print(f"LOGIN: Received request for email={user_in.email}")
+    
     # Authenticate
+    print("LOGIN: Executing database query...")
     result = await db.execute(select(User).where(User.email == user_in.email))
+    print("LOGIN: Database query completed")
+    
     user = result.scalars().first()
-    if not user or not security.verify_password(user_in.password, user.hashed_password):
+    print(f"LOGIN: User found: {user is not None}")
+    
+    if not user:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
+    # Use async password verification to avoid blocking
+    print("LOGIN: Starting password verification...")
+    password_valid = await security.verify_password_async(user_in.password, user.hashed_password)
+    print(f"LOGIN: Password verification completed, valid={password_valid}")
+    
+    if not password_valid:
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    
+    print("LOGIN: Creating tokens...")
     access_token = security.create_access_token(data={"sub": user.email})
+    refresh_token = security.create_refresh_token(data={"sub": user.email})
+    print("LOGIN: Tokens created, returning response")
+    
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user": user # Simple return, usually sanitized via response_model
+        "user": user
     }
+
+@router.post("/refresh")
+async def refresh_token(request: RefreshTokenRequest, db: AsyncSession = Depends(database.get_db)):
+    """
+    Exchange a valid refresh token for a new access token.
+    """
+    try:
+        payload = security.decode_token(request.refresh_token)
+        
+        # Verify it's a refresh token
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Verify user still exists
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        # Issue new access token
+        new_access_token = security.create_access_token(data={"sub": email})
+        
+        return {
+            "access_token": new_access_token,
+            "token_type": "bearer"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/api_client.dart';
 
 part 'user_service.g.dart';
@@ -223,6 +224,29 @@ class UserService extends _$UserService {
       if (tags != null) 'tags': tags,
     });
   }
+
+  /// Upload a profile avatar image
+  Future<Map<String, dynamic>> uploadAvatar(XFile image) async {
+    final dio = ref.read(apiClientProvider);
+    
+    final bytes = await image.readAsBytes();
+    final fileName = image.name.isNotEmpty ? image.name : 'avatar.jpg';
+    
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: fileName,
+      ),
+    });
+    
+    final response = await dio.post('/profile/avatar', data: formData);
+    return response.data;
+  }
+}
+
+@riverpod
+Future<ReviewStatus> taskReviewStatus(Ref ref, int taskId) {
+  return ref.read(userServiceProvider.notifier).getTaskReviewStatus(taskId);
 }
 
 // Review Status Model

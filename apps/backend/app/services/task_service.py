@@ -177,6 +177,15 @@ class TaskService:
             
         await db.commit()
         await db.refresh(task)
+        
+        # Publish WebSocket event to notify helper about task completion
+        if assignment:
+            await redis_client.publish_event(
+                user_id=assignment.helper_id,
+                event_type="task_status_changed",
+                payload={"task_id": task_id, "status": "completed"}
+            )
+        
         return task
 
 task_service = TaskService()

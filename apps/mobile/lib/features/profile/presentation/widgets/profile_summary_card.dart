@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../auth/application/auth_provider.dart';
 import '../../application/user_service.dart';
+import '../../../../core/api_client.dart';
 
-class ProfileSummaryCard extends ConsumerWidget {
+class ProfileSummaryCard extends ConsumerStatefulWidget {
   final UserSession session;
   final VoidCallback onEdit;
   final VoidCallback onLogout;
@@ -17,11 +19,104 @@ class ProfileSummaryCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isHelper = session.role == 'helper';
+  ConsumerState<ProfileSummaryCard> createState() => _ProfileSummaryCardState();
+}
+
+class _ProfileSummaryCardState extends ConsumerState<ProfileSummaryCard> {
+  bool _isUploading = false;
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Cambia Foto Profilo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.teal.shade800)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildSourceOption(Icons.camera_alt, 'Fotocamera', ImageSource.camera),
+                _buildSourceOption(Icons.photo_library, 'Galleria', ImageSource.gallery),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final image = await picker.pickImage(source: source, maxWidth: 512, maxHeight: 512, imageQuality: 85);
+    if (image == null) return;
+
+    setState(() => _isUploading = true);
+    try {
+      await ref.read(userServiceProvider.notifier).uploadAvatar(image);
+      ref.invalidate(authProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Foto aggiornata!'), backgroundColor: Colors.green.shade600),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore: $e'), backgroundColor: Colors.red.shade600),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Widget _buildSourceOption(IconData icon, String label, ImageSource source) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context, source),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.teal.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.teal.shade200),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 40, color: Colors.teal.shade600),
+            const SizedBox(height: 8),
+            Text(label, style: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _getAvatarUrl() {
+    if (widget.session.avatarUrl == null) return null;
+    final avatarUrl = widget.session.avatarUrl!;
+    if (avatarUrl.startsWith('http')) return avatarUrl;
+    if (avatarUrl.startsWith('/static')) {
+      final baseUrl = ref.read(apiClientProvider).options.baseUrl;
+      return '$baseUrl$avatarUrl';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isHelper = widget.session.role == 'helper';
+    final avatarUrl = _getAvatarUrl();
     
     // Fetch user stats from public profile
-    final statsAsync = ref.watch(userStatsProvider(session.id));
+    final statsAsync = ref.watch(userStatsProvider(widget.session.id));
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -50,20 +145,33 @@ class ProfileSummaryCard extends ConsumerWidget {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.teal.shade200, width: 3),
                     ),
-                    child: CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Colors.teal.shade100,
-                      child: Text(
-                        session.name.isNotEmpty ? session.name[0].toUpperCase() : '?',
-                        style: TextStyle(fontSize: 32, color: Colors.teal.shade700, fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                    child: _isUploading
+                      ? CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.teal.shade100,
+                          child: const CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : avatarUrl != null
+                        ? CircleAvatar(
+                            radius: 40,
+                            backgroundImage: NetworkImage(avatarUrl),
+                            onBackgroundImageError: (_, __) {},
+                            child: null,
+                          )
+                        : CircleAvatar(
+                            radius: 40,
+                            backgroundColor: Colors.teal.shade100,
+                            child: Text(
+                              widget.session.name.isNotEmpty ? widget.session.name[0].toUpperCase() : '?',
+                              style: TextStyle(fontSize: 32, color: Colors.teal.shade700, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                   ),
                   Positioned(
                     right: 0,
                     bottom: 0,
                     child: GestureDetector(
-                      onTap: onEdit,
+                      onTap: _pickAndUploadAvatar,
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
@@ -88,13 +196,13 @@ class ProfileSummaryCard extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => context.push('/u/${session.id}'),
+                            onTap: () => context.push('/u/${widget.session.id}'),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Flexible(
                                   child: Text(
-                                    session.name,
+                                    widget.session.name,
                                     style: TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
@@ -111,7 +219,7 @@ class ProfileSummaryCard extends ConsumerWidget {
                           ),
                         ),
                         GestureDetector(
-                          onTap: onEdit,
+                          onTap: widget.onEdit,
                           child: Icon(Icons.edit, size: 18, color: Colors.teal.shade400),
                         ),
                       ],
@@ -125,7 +233,7 @@ class ProfileSummaryCard extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        session.role.toUpperCase(),
+                        widget.session.role.toUpperCase(),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -200,7 +308,7 @@ class ProfileSummaryCard extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               TextButton.icon(
-                onPressed: onLogout,
+                onPressed: widget.onLogout,
                 icon: Icon(Icons.logout, size: 18, color: Colors.red.shade400),
                 label: Text('Esci', style: TextStyle(color: Colors.red.shade400)),
                 style: TextButton.styleFrom(

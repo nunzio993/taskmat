@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api_client.dart';
 import '../../../core/websocket_service.dart';
 import '../../home/domain/task.dart'; // For TaskMessage if needed, or re-export
+import '../../auth/application/auth_provider.dart';
 import '../domain/chat_models.dart';
 
 // Service
@@ -52,12 +53,39 @@ final chatServiceProvider = Provider((ref) {
 
 // For Client: List of threads for a task
 final taskThreadsProvider = FutureProvider.family<List<ChatThread>, int>((ref, taskId) async {
+  // Wait for auth to be ready before making API calls
+  final authState = ref.watch(authProvider);
+  
+  if (authState.isLoading) {
+    await ref.read(authProvider.future);
+  }
+  
+  final user = authState.valueOrNull;
+  if (user == null) {
+    throw Exception('User not authenticated');
+  }
+  
   final service = ref.watch(chatServiceProvider);
   return service.getTaskThreads(taskId);
 });
 
 // For Helper: Get specific thread for a task (Self <-> Client)
 final myTaskThreadProvider = FutureProvider.family<ChatThread, int>((ref, taskId) async {
+  // Wait for auth to be ready before making API calls
+  // This prevents CORS-like errors when token isn't loaded yet
+  final authState = ref.watch(authProvider);
+  
+  // If still loading, wait for it
+  if (authState.isLoading) {
+    await ref.read(authProvider.future);
+  }
+  
+  // If not authenticated, throw an error
+  final user = authState.valueOrNull;
+  if (user == null) {
+    throw Exception('User not authenticated');
+  }
+  
   final service = ref.watch(chatServiceProvider);
   return service.getOrCreateThread(taskId);
 });

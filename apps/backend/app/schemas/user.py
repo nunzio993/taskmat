@@ -32,6 +32,7 @@ class UserResponse(UserBase):
     id: int
     phone: Optional[str] = None
     bio: Optional[str] = None
+    avatar_url: Optional[str] = None
     languages: List[str] = ['Italiano']
     hourly_rate: Optional[float] = None
     is_available: bool

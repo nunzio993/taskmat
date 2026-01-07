@@ -6,6 +6,8 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../../domain/task.dart';
 import '../../../application/task_service.dart';
 import '../../../../auth/application/auth_provider.dart';
+import '../../../../../core/widgets/user_avatar.dart';
+import '../../../../../core/api_client.dart';
 import 'clarification_chat.dart';
 import 'task_location_map.dart';
 
@@ -43,6 +45,17 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
     final session = ref.read(authProvider).value;
     if (session == null || session.role != 'helper') return false;
     return widget.task.status == 'posted';
+  }
+
+  // Build full avatar URL with baseUrl prefix for /static paths
+  String? _getFullAvatarUrl(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) return null;
+    if (avatarUrl.startsWith('http')) return avatarUrl;
+    if (avatarUrl.startsWith('/static')) {
+      final baseUrl = ref.read(apiClientProvider).options.baseUrl;
+      return '$baseUrl$avatarUrl';
+    }
+    return null;
   }
 
   Future<void> _sendOffer() async {
@@ -635,16 +648,18 @@ class _HelperDetailPaneState extends ConsumerState<HelperDetailPane> {
                      border: Border.all(color: Colors.teal.shade200, width: 2),
                    ),
                    child: CircleAvatar(
-                     radius: 22,
-                     backgroundColor: Colors.teal.shade50,
-                     backgroundImage: task.client?.avatarUrl != null ? NetworkImage(task.client!.avatarUrl!) : null,
-                     child: task.client?.avatarUrl == null 
-                       ? Text(
-                           task.client?.displayName.isNotEmpty == true ? task.client!.displayName[0] : '?',
-                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
-                         ) 
-                       : null,
-                   ),
+                      radius: 22,
+                      backgroundColor: Colors.teal.shade50,
+                      backgroundImage: _getFullAvatarUrl(task.client?.avatarUrl) != null 
+                        ? NetworkImage(_getFullAvatarUrl(task.client?.avatarUrl)!) 
+                        : null,
+                      child: _getFullAvatarUrl(task.client?.avatarUrl) == null 
+                        ? Text(
+                            task.client?.displayName.isNotEmpty == true ? task.client!.displayName[0] : '?',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
+                          ) 
+                        : null,
+                    ),
                  ),
                  const SizedBox(width: 12),
                  Column(

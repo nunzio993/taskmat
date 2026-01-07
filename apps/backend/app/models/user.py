@@ -14,6 +14,7 @@ class User(Base):
     name = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
+    avatar_url = Column(String, nullable=True)  # Path like /static/avatars/uuid.jpg
     languages = Column(JSON, default=['Italiano'])  # Spoken languages
     
     # Helper Specific

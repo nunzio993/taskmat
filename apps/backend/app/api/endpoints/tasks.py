@@ -320,7 +320,7 @@ def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None, show_exact
          client_profile = schemas.UserPublicProfile(
              id=task.client.id,
              display_name=(lambda n: f"{n.split()[0]} {n.split()[1][0]}." if n and len(n.split()) > 1 else n or f"User {task.client.id}")(task.client.name),
-             avatar_url=None,
+             avatar_url=task.client.avatar_url,
              avg_rating=avg_rating,
              review_count=len(visible_reviews)
          )
@@ -349,7 +349,7 @@ def _to_task_out(task: Task, explicit_offers: List[TaskOffer] = None, show_exact
             created_at=o.created_at,
             updated_at=o.updated_at,
             helper_name=o.helper.name if o.helper else "Unknown Helper",
-            helper_avatar_url=None,
+            helper_avatar_url=o.helper.avatar_url if o.helper else None,
             helper_rating=helper_rating
         ))
 

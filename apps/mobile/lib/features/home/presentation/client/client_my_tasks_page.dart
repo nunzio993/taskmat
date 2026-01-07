@@ -13,6 +13,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'widgets/client_offers_list.dart';
 import 'widgets/client_detail_pane.dart'; // For ChatDialogContent
 import 'widgets/task_review_button.dart';
+import '../../../../core/widgets/proof_image_viewer.dart';
 
 // Enums for UI State
 enum TaskFilter { active, history }
@@ -386,14 +387,8 @@ class _ClientMyTasksPageState extends ConsumerState<ClientMyTasksPage> {
             const SizedBox(height: 24),
             
             // Actions Card (like Helper)
-            if (['assigned', 'in_progress', 'in_confirmation'].contains(task.status)) ...[
+            if (['assigned', 'in_progress', 'in_confirmation', 'completed'].contains(task.status)) ...[
                _ActiveTaskActions(task: task),
-               const SizedBox(height: 24),
-            ],
-            
-            // Review Section for completed tasks
-            if (task.status == 'completed') ...[
-               _ReviewSection(task: task),
                const SizedBox(height: 24),
             ],
             
@@ -600,7 +595,7 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
                     itemBuilder: (c, i) => Container(
                        width: 100,
                        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
-                       child: const Icon(Icons.image, color: Colors.grey), // Placeholder for actual image
+                       child: ProofImageThumbnail(proof: widget.task.proofs[i], size: 100),
                     ),
                   ),
                 ),
@@ -954,6 +949,7 @@ class _ActiveTaskActions extends ConsumerWidget {
      final status = task.status;
      final isInConfirmation = status == 'in_confirmation';
      final isInProgress = status == 'in_progress';
+     final isCompleted = status == 'completed';
      final isAssigned = status == 'assigned';
      
      return Container(
@@ -967,32 +963,37 @@ class _ActiveTaskActions extends ConsumerWidget {
        child: Column(
          crossAxisAlignment: CrossAxisAlignment.stretch,
          children: [
-           Row(
-             mainAxisAlignment: MainAxisAlignment.center,
-             children: [
-               Icon(
-                 isInConfirmation ? Icons.hourglass_empty : isInProgress ? Icons.play_circle : Icons.assignment_turned_in,
-                 color: isInConfirmation ? Colors.purple.shade600 : Colors.teal.shade600,
-               ),
-               const SizedBox(width: 8),
-               Text(
-                 isInConfirmation ? 'In Attesa Conferma' : isInProgress ? 'Lavoro in Corso' : 'Lavoro Assegnato',
-                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade800),
-               ),
-             ],
-           ),
-           const SizedBox(height: 16),
-           
-           OutlinedButton.icon(
-             onPressed: () => _openChatWithHelper(context, ref),
-             icon: Icon(Icons.chat_bubble_outline, color: Colors.teal.shade600),
-             label: Text('Chat con Helper', style: TextStyle(color: Colors.teal.shade600)),
-             style: OutlinedButton.styleFrom(
-               padding: const EdgeInsets.symmetric(vertical: 14),
-               side: BorderSide(color: Colors.teal.shade300),
-               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+           // Status Header
+           if (!isCompleted)
+             Row(
+               mainAxisAlignment: MainAxisAlignment.center,
+               children: [
+                 Icon(
+                   isInConfirmation ? Icons.hourglass_empty : isInProgress ? Icons.play_circle : Icons.assignment_turned_in,
+                   color: isInConfirmation ? Colors.purple.shade600 : Colors.teal.shade600,
+                 ),
+                 const SizedBox(width: 8),
+                 Text(
+                   isInConfirmation ? 'In Attesa Conferma' : isInProgress ? 'Lavoro in Corso' : 'Lavoro Assegnato',
+                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade800),
+                 ),
+               ],
              ),
-           ),
+             
+           if (!isCompleted)
+             const SizedBox(height: 16),
+           
+           if (!isCompleted)
+             OutlinedButton.icon(
+               onPressed: () => _openChatWithHelper(context, ref),
+               icon: Icon(Icons.chat_bubble_outline, color: Colors.teal.shade600),
+               label: Text('Chat con Helper', style: TextStyle(color: Colors.teal.shade600)),
+               style: OutlinedButton.styleFrom(
+                 padding: const EdgeInsets.symmetric(vertical: 14),
+                 side: BorderSide(color: Colors.teal.shade300),
+                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+               ),
+             ),
            
            if (isInConfirmation) ...[
               const SizedBox(height: 12),
@@ -1007,6 +1008,23 @@ class _ActiveTaskActions extends ConsumerWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
+           ],
+
+           if (isCompleted) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green.shade200)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green.shade600),
+                    const SizedBox(width: 10),
+                    Text('Lavoro completato!', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ClientInternalReviewWidget(task: task),
            ]
          ],
        ),
@@ -1115,137 +1133,120 @@ class _ChatThreadsSection extends ConsumerWidget {
   }
 }
 
-class _ReviewSection extends ConsumerWidget {
+class _ClientInternalReviewWidget extends ConsumerStatefulWidget {
   final Task task;
-  const _ReviewSection({required this.task});
+  const _ClientInternalReviewWidget({required this.task});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ClientInternalReviewWidget> createState() => _ClientInternalReviewWidgetState();
+}
+
+class _ClientInternalReviewWidgetState extends ConsumerState<_ClientInternalReviewWidget> {
+  Future<ReviewStatus>? _reviewStatusFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReviewStatus();
+  }
+
+  void _loadReviewStatus() {
+    _reviewStatusFuture = ref.read(userServiceProvider.notifier).getTaskReviewStatus(widget.task.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<ReviewStatus>(
-      future: ref.read(userServiceProvider.notifier).getTaskReviewStatus(task.id),
+      future: _reviewStatusFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.teal.shade100),
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade200),
             ),
-            child: const Center(child: CircularProgressIndicator()),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.amber.shade600))
+              ),
+            ),
           );
+        }
+
+        if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red));
         }
 
         final status = snapshot.data;
         final hasReviewed = status?.hasReviewed ?? false;
         final myReview = status?.myReview;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(color: Colors.amber.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4)),
-            ],
-            border: Border.all(color: Colors.amber.shade200),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.star_rounded, color: Colors.amber.shade600),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Recensione',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.amber.shade800),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              if (hasReviewed && myReview != null) ...[
-                // Show submitted review
+        if (hasReviewed && myReview != null) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   children: [
-                    ...List.generate(myReview.stars, (i) =>
-                      Icon(Icons.star_rounded, size: 24, color: Colors.amber.shade500)
-                    ),
-                    ...List.generate(5 - myReview.stars, (i) =>
-                      Icon(Icons.star_outline_rounded, size: 24, color: Colors.grey.shade300)
-                    ),
+                    const Icon(Icons.star_rounded, size: 20, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Text('La tua recensione', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    ...List.generate(myReview.stars, (i) => Icon(Icons.star_rounded, size: 20, color: Colors.amber.shade600)),
+                    ...List.generate(5 - myReview.stars, (i) => Icon(Icons.star_outline_rounded, size: 20, color: Colors.amber.shade300)),
                   ],
                 ),
                 if (myReview.comment != null && myReview.comment!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    '"${myReview.comment}"',
-                    style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey.shade700),
-                  ),
+                  const SizedBox(height: 8),
+                  Text('"${myReview.comment}"', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.amber.shade900)),
                 ],
-                if (myReview.tags.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: myReview.tags.map((tag) => Chip(
-                      label: Text(tag, style: const TextStyle(fontSize: 12)),
-                      backgroundColor: Colors.amber.shade50,
-                    )).toList(),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Icon(
-                      status!.reviewsVisible ? Icons.visibility : Icons.hourglass_empty,
-                      size: 16,
-                      color: status.reviewsVisible ? Colors.green : Colors.grey,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      status.reviewsVisible
-                          ? 'Recensione visibile'
-                          : 'In attesa della recensione dell\'helper',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: status.reviewsVisible ? Colors.green.shade700 : Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                // Show review button
-                Text(
-                  'Come è stata l\'esperienza con ${task.assignedHelperName ?? "l\'helper"}?',
-                  style: TextStyle(color: Colors.grey.shade700),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final result = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => ReviewDialog(
-                        taskId: task.id,
-                        targetUserName: task.assignedHelperName ?? 'Helper',
-                        isReviewingAsClient: true,
-                      ),
-                    );
-                    if (result == true) {
-                      ref.invalidate(myCreatedTasksProvider);
-                    }
-                  },
-                  icon: const Icon(Icons.star_outline_rounded),
-                  label: const Text('Lascia una Recensione'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber.shade500,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
               ],
-            ],
+            ),
+          );
+        }
+
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (_) => ReviewDialog(
+                  taskId: widget.task.id,
+                  targetUserName: widget.task.assignedHelperName ?? 'Helper',
+                  isReviewingAsClient: true,
+                ),
+              );
+              if (result == true) {
+                ref.invalidate(myCreatedTasksProvider);
+                setState(() {
+                  _loadReviewStatus();
+                });
+              }
+            },
+            icon: const Icon(Icons.star_outline_rounded),
+            label: const Text('Lascia una Recensione'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade500,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
           ),
         );
       },

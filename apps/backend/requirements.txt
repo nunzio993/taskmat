@@ -21,3 +21,4 @@ email-validator
 aiosqlite
 python-multipart
 websockets
+aiofiles

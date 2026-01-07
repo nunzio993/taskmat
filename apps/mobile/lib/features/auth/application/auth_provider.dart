@@ -14,6 +14,7 @@ class UserSession {
   final String email;
   final String? phone;
   final String? bio;
+  final String? avatarUrl;
   final double? hourlyRate;
   
   // Advanced Preferences
@@ -33,6 +34,7 @@ class UserSession {
     required this.email,
     this.phone,
     this.bio,
+    this.avatarUrl,
     this.hourlyRate,
     this.isAvailable = false,
     this.readiness = const {'stripe': true, 'profile': true, 'categories': false},
@@ -52,6 +54,7 @@ class UserSession {
     String? email,
     String? phone,
     String? bio,
+    String? avatarUrl,
     double? hourlyRate,
     bool? isAvailable,
     Map<String, bool>? readiness,
@@ -69,6 +72,7 @@ class UserSession {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       bio: bio ?? this.bio,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       hourlyRate: hourlyRate ?? this.hourlyRate,
       isAvailable: isAvailable ?? this.isAvailable,
       readiness: readiness ?? this.readiness,
@@ -123,11 +127,15 @@ class Auth extends _$Auth {
       });
 
       final data = response.data;
-      final token = data['access_token'];
+      final accessToken = data['access_token'];
+      final refreshToken = data['refresh_token'];
       final userMap = data['user'];
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', token);
+      await prefs.setString('auth_token', accessToken);
+      if (refreshToken != null) {
+        await prefs.setString('refresh_token', refreshToken);
+      }
       
       // Parse User
       final user = _parseUser(userMap);
@@ -242,6 +250,7 @@ class Auth extends _$Auth {
       email: data['email'],
       phone: data['phone'],
       bio: data['bio'],
+      avatarUrl: data['avatar_url'],
       hourlyRate: (data['hourly_rate'] as num?)?.toDouble(),
       isAvailable: data['is_available'] ?? false,
       readiness: Map<String, bool>.from(readiness),

@@ -22,6 +22,7 @@ import '../../home/presentation/client/widgets/client_detail_pane.dart'; // For 
 import '../../chat/application/chat_providers.dart';
 import '../../chat/domain/chat_models.dart';
 import '../../home/application/task_service.dart';
+import '../../../core/widgets/proof_image_viewer.dart';
 
 class TaskDetailsScreen extends ConsumerStatefulWidget {
   final Task initialTask;
@@ -260,32 +261,10 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
           const SizedBox(height: 8),
           ...task.proofs.map((p) => Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
-            child: ClipRRect(
-               borderRadius: BorderRadius.circular(8),
-                // In a real app, use p.storageKey as URL (or presigned url)
-               // For mock, it's a file path which won't load on client if helper uploaded it from their device
-               // UNLESS we are on the same device simulator OR backend acts as proxy.
-               // Since backend mock stores "mock_proof_timestamp.jpg", we can't display it easily without S3.
-               // For demo purposes, we will display a Placeholder Icon or just Text if it's a mock key.
-               // If p.storageKey starts with 'http', show NetworkImage.
-                child: p.storageKey.startsWith('http')
-                  ? Image.network(p.storageKey, height: 200, width: double.infinity, fit: BoxFit.cover)
-                  : p.storageKey.startsWith('/static')
-                    ? Image.network('${ref.read(apiClientProvider).options.baseUrl}${p.storageKey}', height: 200, width: double.infinity, fit: BoxFit.cover)
-                    : p.storageKey.startsWith('/') && !kIsWeb
-                      ? Image.file(File(p.storageKey), height: 200, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_,__,___) => const SizedBox())
-                      : Container(
-                          height: 200, 
-                          width: double.infinity, 
-                          color: Colors.grey[200], 
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.image, size: 50, color: Colors.grey),
-                              Text('Proof Image'),
-                            ],
-                          ),
-                        ),
+            child: ProofImageThumbnail(
+              proof: p,
+              size: 200,
+              borderRadius: BorderRadius.circular(8),
             ),
           )),
         ]

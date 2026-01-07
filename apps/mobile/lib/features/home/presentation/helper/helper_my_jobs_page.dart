@@ -12,6 +12,7 @@ import '../../../../features/chat/domain/chat_models.dart';
 import '../client/widgets/client_detail_pane.dart';
 import '../../../../features/reviews/presentation/review_dialog.dart';
 import '../../../../features/profile/application/user_service.dart';
+import '../../../../core/widgets/proof_image_viewer.dart';
 
 enum TaskFilter { active, history }
 
@@ -382,7 +383,7 @@ class _JobDetailsCard extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       itemCount: task.proofs.length,
                       separatorBuilder: (c, i) => const SizedBox(width: 8),
-                      itemBuilder: (c, i) => Container(width: 80, decoration: BoxDecoration(color: Colors.teal.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.teal.shade200)), child: Icon(Icons.image, color: Colors.teal.shade400)),
+                      itemBuilder: (c, i) => ProofImageThumbnail(proof: task.proofs[i], size: 80),
                     ),
                   ),
               ],
@@ -674,24 +675,7 @@ class _ActiveJobActionsState extends ConsumerState<_ActiveJobActions> {
                         itemCount: widget.task.proofs.length,
                         separatorBuilder: (_, __) => const SizedBox(width: 8),
                         itemBuilder: (context, index) {
-                          return Container(
-                            width: 70,
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.teal.shade300),
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.teal.shade600, size: 28),
-                                Positioned(
-                                  bottom: 4,
-                                  child: Text('Foto ${index + 1}', style: TextStyle(fontSize: 9, color: Colors.teal.shade700)),
-                                ),
-                              ],
-                            ),
-                          );
+                          return ProofImageThumbnail(proof: widget.task.proofs[index], size: 70);
                         },
                       ),
                     ),

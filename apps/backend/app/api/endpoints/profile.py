@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.core import database
@@ -9,6 +9,9 @@ from app.schemas.user import UserResponse, UserUpdate
 from app.schemas.address import AddressCreate, AddressResponse, AddressUpdate
 from app.schemas.payment_method import PaymentMethodCreate, PaymentMethodResponse
 from sqlalchemy import select
+import os
+import uuid
+import aiofiles
 
 router = APIRouter()
 
@@ -35,6 +38,7 @@ async def read_users_me(
         name=user.name,
         phone=user.phone,
         bio=user.bio,
+        avatar_url=user.avatar_url,
         languages=user.languages if user.languages else ['Italiano'],
         hourly_rate=user.hourly_rate,
         is_available=user.is_available,
@@ -96,6 +100,7 @@ async def update_user_me(
         name=user.name,
         phone=user.phone,
         bio=user.bio,
+        avatar_url=user.avatar_url,
         languages=user.languages if user.languages else ['Italiano'],
         hourly_rate=user.hourly_rate,
         is_available=user.is_available,
@@ -174,6 +179,7 @@ async def become_helper(
         name=user.name,
         phone=user.phone,
         bio=user.bio,
+        avatar_url=user.avatar_url,
         languages=user.languages if user.languages else ['Italiano'],
         hourly_rate=user.hourly_rate,
         is_available=user.is_available,
@@ -184,3 +190,75 @@ async def become_helper(
         addresses=[],
         payment_methods=[]
     )
+
+
+AVATAR_UPLOAD_DIR = "static/avatars"
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+@router.post("/avatar", response_model=UserResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+):
+    """
+    Upload a profile avatar image.
+    """
+    # Validate file extension
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {ALLOWED_EXTENSIONS}")
+    
+    # Generate unique filename
+    unique_filename = f"{current_user.id}_{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(AVATAR_UPLOAD_DIR, unique_filename)
+    
+    # Ensure directory exists
+    os.makedirs(AVATAR_UPLOAD_DIR, exist_ok=True)
+    
+    # Delete old avatar if exists
+    if current_user.avatar_url:
+        old_path = current_user.avatar_url.lstrip("/")
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except:
+                pass  # Don't fail if can't delete old file
+    
+    # Save file
+    async with aiofiles.open(file_path, "wb") as out_file:
+        content = await file.read()
+        await out_file.write(content)
+    
+    # Update user's avatar_url
+    current_user.avatar_url = f"/{file_path.replace(os.sep, '/')}"
+    db.add(current_user)
+    await db.commit()
+    
+    # Re-fetch to return updated user
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.addresses), selectinload(User.payment_methods))
+        .filter(User.id == current_user.id)
+    )
+    user = result.scalars().first()
+    
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        role=user.role,
+        name=user.name,
+        phone=user.phone,
+        bio=user.bio,
+        avatar_url=user.avatar_url,
+        languages=user.languages if user.languages else ['Italiano'],
+        hourly_rate=user.hourly_rate,
+        is_available=user.is_available,
+        skills=user.skills if user.skills else [],
+        document_status=user.document_status,
+        preferences=user.preferences if user.preferences else {},
+        readiness_status=user.readiness_status if user.readiness_status else {},
+        addresses=[],
+        payment_methods=[]
+    )
+
