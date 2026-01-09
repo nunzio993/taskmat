@@ -113,6 +113,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           child: Container(
                             margin: const EdgeInsets.symmetric(vertical: 4),
                             padding: const EdgeInsets.all(12),
+                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
                             decoration: BoxDecoration(
                               color: isMe ? Colors.blue[100] : Colors.grey[200],
                               borderRadius: BorderRadius.circular(12),
@@ -121,6 +122,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                // Show sender info for other user's messages
+                                if (!isMe && msg.senderName != null) ...[
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        msg.senderName!,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                      if (msg.senderRating != null && msg.senderRating! > 0) ...[
+                                        const SizedBox(width: 6),
+                                        Icon(Icons.star, size: 12, color: Colors.amber[600]),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          msg.senderRating!.toStringAsFixed(1),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        if (msg.senderReviewCount != null && msg.senderReviewCount! > 0) ...[
+                                          Text(
+                                            ' (${msg.senderReviewCount})',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
                                 Text(msg.body),
                                 const SizedBox(height: 4),
                                 Text(

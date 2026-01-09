@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/application/auth_provider.dart';
 import '../widgets/readiness_checklist.dart';
+import '../../../../core/constants/categories.dart';
 
 class PreferencesTab extends ConsumerWidget {
   const PreferencesTab({super.key});
@@ -101,7 +102,7 @@ class PreferencesTab extends ConsumerWidget {
   }
 
   Widget _buildMatchingSection(BuildContext context, WidgetRef ref, UserSession session) {
-    final categories = ['Cleaning', 'Moving', 'Plumbing', 'Electrical', 'Gardening'];
+    final categoriesAsync = ref.watch(categoriesProvider);
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,24 +111,29 @@ class PreferencesTab extends ConsumerWidget {
         const SizedBox(height: 16),
         const Text('Service Categories'),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: categories.map((cat) {
-            final isSelected = session.categories.contains(cat);
-            return FilterChip(
-              label: Text(cat),
-              selected: isSelected,
-              onSelected: (bool selected) {
-                final newCats = List<String>.from(session.categories);
-                if (selected) {
-                  if (newCats.length < 5) newCats.add(cat);
-                } else {
-                  newCats.remove(cat);
-                }
-                ref.read(authProvider.notifier).updateProfile(categories: newCats);
-              },
-            );
-          }).toList(),
+        categoriesAsync.when(
+          data: (categories) => Wrap(
+            spacing: 8,
+            children: categories.map((cat) {
+              final isSelected = session.categories.contains(cat.displayName);
+              return FilterChip(
+                avatar: Icon(getCategoryIcon(cat.slug), size: 16),
+                label: Text(cat.displayName),
+                selected: isSelected,
+                onSelected: (bool selected) {
+                  final newCats = List<String>.from(session.categories);
+                  if (selected) {
+                    if (newCats.length < 5) newCats.add(cat.displayName);
+                  } else {
+                    newCats.remove(cat.displayName);
+                  }
+                  ref.read(authProvider.notifier).updateProfile(categories: newCats);
+                },
+              );
+            }).toList(),
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('Error loading categories: $e', style: TextStyle(color: Colors.red.shade600)),
         ),
         const SizedBox(height: 24),
         Text('Operations Radius: ${session.matchingRadius.toInt()} km'),

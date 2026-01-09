@@ -17,6 +17,12 @@ class TaskMessageResponse(TaskMessageBase):
     sender_id: int
     created_at: datetime
     read_at: Optional[datetime] = None
+    
+    # Sender details for display
+    sender_name: Optional[str] = None
+    sender_avatar_url: Optional[str] = None
+    sender_rating: Optional[float] = None
+    sender_review_count: Optional[int] = None
 
     class Config:
         from_attributes = True

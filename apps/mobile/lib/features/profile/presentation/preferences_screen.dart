@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/application/auth_provider.dart';
 import 'widgets/readiness_checklist.dart';
+import '../../../core/constants/categories.dart';
 
 class PreferencesScreen extends ConsumerStatefulWidget {
   const PreferencesScreen({super.key});
@@ -250,7 +251,7 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildMatchingSection(UserSession session) {
-    final categories = ['Cleaning', 'Moving', 'Gardening', 'Tech Support', 'General'];
+    final categoriesAsync = ref.watch(categoriesProvider);
     
     return _buildCard(
       title: 'Matching',
@@ -260,27 +261,32 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
         children: [
           Text('Categorie Servizi', style: TextStyle(color: Colors.teal.shade600, fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: categories.map((cat) {
-              final isSelected = session.categories.contains(cat);
-              return FilterChip(
-                label: Text(cat),
-                selected: isSelected,
-                selectedColor: Colors.teal.shade100,
-                checkmarkColor: Colors.teal.shade700,
-                onSelected: (selected) {
-                  final newCats = List<String>.from(session.categories);
-                  if (selected) {
-                    newCats.add(cat);
-                  } else if (newCats.length > 1) {
-                    newCats.remove(cat);
-                  }
-                  ref.read(authProvider.notifier).updateProfile(categories: newCats);
-                },
-              );
-            }).toList(),
+          categoriesAsync.when(
+            data: (categories) => Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: categories.map((cat) {
+                final isSelected = session.categories.contains(cat.displayName);
+                return FilterChip(
+                  avatar: Icon(getCategoryIcon(cat.slug), size: 16),
+                  label: Text(cat.displayName),
+                  selected: isSelected,
+                  selectedColor: Colors.teal.shade100,
+                  checkmarkColor: Colors.teal.shade700,
+                  onSelected: (selected) {
+                    final newCats = List<String>.from(session.categories);
+                    if (selected) {
+                      newCats.add(cat.displayName);
+                    } else if (newCats.length > 1) {
+                      newCats.remove(cat.displayName);
+                    }
+                    ref.read(authProvider.notifier).updateProfile(categories: newCats);
+                  },
+                );
+              }).toList(),
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('Errore: $e', style: TextStyle(color: Colors.red.shade600)),
           ),
           const SizedBox(height: 20),
           Row(
@@ -682,16 +688,22 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildTaskDefaultsSection() {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    
     return _buildCard(
       title: 'Default Task',
       icon: Icons.assignment_outlined,
       child: Column(
         children: [
-          _buildDropdownTile(
-            'Categoria Default',
-            _defaultCategory,
-            ['General', 'Cleaning', 'Moving', 'Gardening', 'Tech Support'],
-            (v) => setState(() => _defaultCategory = v ?? 'General'),
+          categoriesAsync.when(
+            data: (categories) => _buildDropdownTile(
+              'Categoria Default',
+              _defaultCategory,
+              categories.map((c) => c.displayName).toList(),
+              (v) => setState(() => _defaultCategory = v ?? categories.first.displayName),
+            ),
+            loading: () => const Center(child: SizedBox(height: 48, child: CircularProgressIndicator())),
+            error: (e, _) => Text('Errore categorie: $e'),
           ),
           Divider(color: Colors.teal.shade100),
           _buildDropdownTile(

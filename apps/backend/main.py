@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import tasks, auth, profile, helper, chat, ws, users, reviews, admin, stripe
+from app.api.endpoints import tasks, auth, profile, helper, chat, ws, users, reviews, admin, stripe, categories
 from app.core.redis_client import redis_client
 from app.core.database import engine, Base
 
@@ -50,6 +50,7 @@ app.include_router(reviews.router, prefix="", tags=["reviews"])
 app.include_router(ws.router, tags=["websocket"])
 app.include_router(admin.router)  # Admin panel endpoints
 app.include_router(stripe.router)  # Stripe Connect endpoints
+app.include_router(categories.router)  # Public categories endpoint
 
 @app.get("/health")
 async def health_check():

@@ -49,10 +49,20 @@ class InboxPreviewSection extends ConsumerWidget {
     final diff = DateTime.now().difference(thread.lastMessageAt);
     final timeAgo = diff.inMinutes < 60 ? '${diff.inMinutes}m' : (diff.inHours < 24 ? '${diff.inHours}h' : '${diff.inDays}g');
     
+    // Build full avatar URL if it's a relative path
+    String? avatarUrl = thread.otherUserAvatar;
+    if (avatarUrl != null && !avatarUrl.startsWith('http')) {
+      avatarUrl = 'http://localhost:8000$avatarUrl';
+    }
+    
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.go('/my-jobs?selectedJobId=${thread.taskId}&openChat=true'),
+        onTap: () => context.go('/chat', extra: {
+          'taskId': thread.taskId,
+          'helperId': null, // Helper is the current user
+          'title': thread.taskTitle,
+        }),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.teal.shade50))),
@@ -61,8 +71,8 @@ class InboxPreviewSection extends ConsumerWidget {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: Colors.teal.shade100,
-                backgroundImage: thread.otherUserAvatar != null ? NetworkImage(thread.otherUserAvatar!) : null,
-                child: thread.otherUserAvatar == null ? Text(thread.otherUserName.isNotEmpty ? thread.otherUserName[0] : '?', style: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold)) : null,
+                backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                child: avatarUrl == null ? Text(thread.otherUserName.isNotEmpty ? thread.otherUserName[0] : '?', style: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold)) : null,
               ),
               const SizedBox(width: 12),
               Expanded(

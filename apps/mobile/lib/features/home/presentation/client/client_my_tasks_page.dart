@@ -14,6 +14,8 @@ import 'widgets/client_offers_list.dart';
 import 'widgets/client_detail_pane.dart'; // For ChatDialogContent
 import 'widgets/task_review_button.dart';
 import '../../../../core/widgets/proof_image_viewer.dart';
+import '../../../../core/widgets/user_avatar.dart';
+import '../../../../core/constants/categories.dart';
 
 // Enums for UI State
 enum TaskFilter { active, history }
@@ -620,16 +622,20 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
            const SizedBox(height: 16),
            Row(
              children: [
-               Expanded(
-                 child: DropdownButtonFormField<String>(
-                   value: _selectedCategory,
-                   decoration: _inputDeco('Category'),
-                   items: ['General', 'Cleaning', 'Moving', 'Gardening', 'Tech Support']
-                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                     .toList(),
-                   onChanged: (v) => setState(() => _selectedCategory = v ?? 'General'),
-                 ),
-               ),
+                Expanded(
+                  child: ref.watch(categoriesProvider).when(
+                    data: (categories) => DropdownButtonFormField<String>(
+                      value: categories.any((c) => c.displayName == _selectedCategory) ? _selectedCategory : categories.first.displayName,
+                      decoration: _inputDeco('Category'),
+                      items: categories
+                        .map((c) => DropdownMenuItem(value: c.displayName, child: Text(c.displayName)))
+                        .toList(),
+                      onChanged: (v) => setState(() => _selectedCategory = v ?? categories.first.displayName),
+                    ),
+                    loading: () => const SizedBox(height: 48, child: Center(child: CircularProgressIndicator())),
+                    error: (e, _) => Text('Error: $e'),
+                  ),
+                ),
                const SizedBox(width: 16),
                Expanded(
                  child: DropdownButtonFormField<String>(
@@ -1085,15 +1091,12 @@ class _ChatThreadsSection extends ConsumerWidget {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: Colors.teal.shade100,
-          child: Text(
-            (thread.helperName?.isNotEmpty == true ? thread.helperName! : 'Helper').substring(0, 1).toUpperCase(),
-            style: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold),
-          ),
+        leading: UserAvatar(
+          avatarUrl: thread.helperAvatarUrl,
+          name: thread.helperName ?? 'Helper',
+          radius: 20,
         ),
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             GestureDetector(
               onTap: () => context.push('/u/${thread.helperId}'),
@@ -1102,6 +1105,21 @@ class _ChatThreadsSection extends ConsumerWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700, decoration: TextDecoration.underline),
               ),
             ),
+            if (thread.helperRating != null && thread.helperRating! > 0) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.star, size: 14, color: Colors.amber.shade600),
+              const SizedBox(width: 2),
+              Text(
+                thread.helperRating!.toStringAsFixed(1),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              if (thread.helperReviewCount != null && thread.helperReviewCount! > 0)
+                Text(
+                  ' (${thread.helperReviewCount})',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+            ],
+            const Spacer(),
             if (thread.messages.isNotEmpty)
                Text(
                  timeago.format(thread.messages.last.createdAt, locale: 'en_short'),

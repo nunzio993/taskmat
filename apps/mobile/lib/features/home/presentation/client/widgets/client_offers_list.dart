@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../domain/task.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../../../../../core/widgets/user_avatar.dart';
 
-class ClientOffersList extends StatelessWidget {
+class ClientOffersList extends ConsumerWidget {
   final Task task;
   final Function(int helperId)? onOpenChat;
   final Function(TaskOffer offer)? onAcceptOffer;
@@ -18,7 +20,7 @@ class ClientOffersList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final offers = task.offers ?? [];
     
     if (offers.isEmpty) {
@@ -71,12 +73,11 @@ class ClientOffersList extends StatelessWidget {
                children: [
                  Row(
                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Colors.grey.shade200,
-                        backgroundImage: offer.helperAvatarUrl != null ? NetworkImage(offer.helperAvatarUrl!) : null,
-                        child: offer.helperAvatarUrl == null ? const Icon(Icons.person, color: Colors.grey) : null,
-                      ),
+                       UserAvatar(
+                         avatarUrl: offer.helperAvatarUrl,
+                         name: offer.helperName ?? 'Helper',
+                         radius: 20,
+                       ),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

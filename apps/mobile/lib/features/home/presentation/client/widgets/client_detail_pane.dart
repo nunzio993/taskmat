@@ -10,6 +10,7 @@ import '../../../../chat/application/chat_providers.dart';
 import '../../../../chat/domain/chat_models.dart';
 import '../../../../auth/application/auth_provider.dart';
 import '../../../application/task_service.dart';
+import '../../../application/tasks_provider.dart';
 
 
 class ClientDetailPane extends ConsumerWidget {
@@ -402,10 +403,13 @@ class ClientDetailPane extends ConsumerWidget {
   void _acceptOffer(BuildContext context, WidgetRef ref, TaskOffer offer) async {
     try {
       await ref.read(taskServiceProvider.notifier).selectOffer(task.id, offer.id);
+      // Refresh task data to show updated offer statuses (other offers are auto-declined by backend)
+      ref.invalidate(myCreatedTasksProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Offer accepted!')),
         );
+        Navigator.pop(context); // Close the detail pane to refresh view
       }
     } catch (e) {
       if (context.mounted) {

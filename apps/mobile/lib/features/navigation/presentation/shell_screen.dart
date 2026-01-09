@@ -11,9 +11,10 @@ class ShellScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(authProvider).value;
-    final navItems = _buildNavItems(session?.role);
-    final selectedIndex = _calculateSelectedIndex(context, session?.role);
+    // Only watch the role to prevent rebuilds when other profile fields change
+    final role = ref.watch(authProvider.select((s) => s.valueOrNull?.role));
+    final navItems = _buildNavItems(role);
+    final selectedIndex = _calculateSelectedIndex(context, role);
 
     return Scaffold(
       body: LayoutBuilder(
@@ -24,7 +25,7 @@ class ShellScreen extends ConsumerWidget {
               children: [
                 NavigationRail(
                   selectedIndex: selectedIndex,
-                  onDestinationSelected: (idx) => _onItemTapped(idx, context, session?.role),
+                  onDestinationSelected: (idx) => _onItemTapped(idx, context, role),
                   labelType: NavigationRailLabelType.all,
                   destinations: navItems.map((item) => NavigationRailDestination(
                     icon: item.icon,
@@ -45,7 +46,7 @@ class ShellScreen extends ConsumerWidget {
           ? null 
           : NavigationBar(
               selectedIndex: selectedIndex,
-              onDestinationSelected: (idx) => _onItemTapped(idx, context, session?.role),
+              onDestinationSelected: (idx) => _onItemTapped(idx, context, role),
               destinations: navItems,
             ),
     );

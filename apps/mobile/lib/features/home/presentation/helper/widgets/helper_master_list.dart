@@ -28,6 +28,7 @@ class _HelperMasterListState extends ConsumerState<HelperMasterList> {
   String? _selectedCategory;
   bool _onlyUrgent = false;
   String _sortBy = 'distance'; // distance, price_desc, price_asc, created_desc
+  double _maxDistance = 50.0; // km
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +41,11 @@ class _HelperMasterListState extends ConsumerState<HelperMasterList> {
               // Apply Filters
               var filtered = tasks.where((t) {
                 if (_selectedCategory != null && t.category != _selectedCategory) return false;
-                if (_onlyUrgent) {
-                   return true; 
+                if (_onlyUrgent && t.urgency != 'high') return false;
+                // Distance filter
+                if (widget.userLocation != null) {
+                  final dist = const Distance().as(LengthUnit.Kilometer, widget.userLocation!, LatLng(t.lat, t.lon));
+                  if (dist > _maxDistance) return false;
                 }
                 return true;
               }).toList();
@@ -266,111 +270,189 @@ class _HelperMasterListState extends ConsumerState<HelperMasterList> {
 
   Widget _buildFilterBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.teal.shade50,
-            Colors.white,
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        border: Border(bottom: BorderSide(color: Colors.teal.shade100)),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-             // Sort Dropdown
-             Container(
-               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-               decoration: BoxDecoration(
-                 color: Colors.white,
-                 borderRadius: BorderRadius.circular(8),
-                 border: Border.all(color: Colors.teal.shade200),
-               ),
-               child: DropdownButton<String>(
-                 value: _sortBy,
-                 underline: const SizedBox(),
-                 icon: Icon(Icons.arrow_drop_down, color: Colors.teal.shade600),
-                 style: TextStyle(fontWeight: FontWeight.w500, color: Colors.teal.shade700, fontSize: 13),
-                 onChanged: (v) => setState(() => _sortBy = v!),
-                 items: const [
-                   DropdownMenuItem(value: 'distance', child: Text('Distanza')),
-                   DropdownMenuItem(value: 'created_desc', child: Text('Più recenti')),
-                   DropdownMenuItem(value: 'price_desc', child: Text('Prezzo: Alto')),
-                   DropdownMenuItem(value: 'price_asc', child: Text('Prezzo: Basso')),
-                 ],
-               ),
-             ),
-             const SizedBox(width: 10),
-             // Category Chip
-             FilterChip(
-               label: Text(_selectedCategory ?? 'Tutte le categorie'),
-               selected: _selectedCategory != null,
-               selectedColor: Colors.teal.shade100,
-               checkmarkColor: Colors.teal.shade700,
-               labelStyle: TextStyle(
-                 color: _selectedCategory != null ? Colors.teal.shade700 : Colors.teal.shade600,
-                 fontSize: 12,
-               ),
-               backgroundColor: Colors.white,
-               side: BorderSide(color: Colors.teal.shade200),
-               onSelected: (v) => _showCategoryPicker(),
-             ),
-             const SizedBox(width: 8),
-             // Urgency Chip
-             FilterChip(
-               label: const Text('Solo Urgenti'),
-               selected: _onlyUrgent,
-               selectedColor: Colors.orange.shade100,
-               checkmarkColor: Colors.orange.shade700,
-               labelStyle: TextStyle(
-                 color: _onlyUrgent ? Colors.orange.shade700 : Colors.teal.shade600,
-                 fontSize: 12,
-               ),
-               backgroundColor: Colors.white,
-               side: BorderSide(color: _onlyUrgent ? Colors.orange.shade300 : Colors.teal.shade200),
-               onSelected: (v) => setState(() => _onlyUrgent = v),
-             ),
-             const SizedBox(width: 8),
-             // Refresh Button
-             Container(
-               decoration: BoxDecoration(
-                 color: Colors.teal.shade50,
-                 borderRadius: BorderRadius.circular(8),
-                 border: Border.all(color: Colors.teal.shade200),
-               ),
-               child: IconButton(
-                 icon: Icon(Icons.refresh, color: Colors.teal.shade600, size: 20), 
-                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                 padding: EdgeInsets.zero,
-                 onPressed: () => ref.refresh(nearbyTasksProvider),
-               ),
-             ),
-             // Reset Button
-             if (_selectedCategory != null || _onlyUrgent || _sortBy != 'distance') ...[
-               const SizedBox(width: 6),
-               Container(
-                 decoration: BoxDecoration(
-                   color: Colors.red.shade50,
-                   borderRadius: BorderRadius.circular(8),
-                   border: Border.all(color: Colors.red.shade200),
-                 ),
-                 child: IconButton(
-                   icon: Icon(Icons.clear, color: Colors.red.shade600, size: 20), 
-                   constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                   padding: EdgeInsets.zero,
-                   onPressed: () => setState(() {
-                     _selectedCategory = null;
-                     _onlyUrgent = false;
-                     _sortBy = 'distance';
-                   }),
-                 ),
-               ),
-             ],
-          ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top Row: Sort, Category, Urgency, Actions
+          Row(
+            children: [
+              // Sort Dropdown
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: DropdownButton<String>(
+                    value: _sortBy,
+                    underline: const SizedBox(),
+                    isExpanded: true,
+                    icon: Icon(Icons.sort, color: Colors.teal.shade600, size: 18),
+                    style: TextStyle(fontWeight: FontWeight.w500, color: Colors.teal.shade700, fontSize: 13),
+                    onChanged: (v) => setState(() => _sortBy = v!),
+                    items: const [
+                      DropdownMenuItem(value: 'distance', child: Text('Più vicini')),
+                      DropdownMenuItem(value: 'created_desc', child: Text('Più recenti')),
+                      DropdownMenuItem(value: 'price_desc', child: Text('Prezzo ↓')),
+                      DropdownMenuItem(value: 'price_asc', child: Text('Prezzo ↑')),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Category Button
+              _buildFilterButton(
+                icon: Icons.category_outlined,
+                label: _selectedCategory ?? 'Categoria',
+                isActive: _selectedCategory != null,
+                onTap: _showCategoryPicker,
+              ),
+              const SizedBox(width: 8),
+              // Urgency Toggle
+              _buildFilterButton(
+                icon: Icons.flash_on,
+                label: 'Urgenti',
+                isActive: _onlyUrgent,
+                activeColor: Colors.orange,
+                onTap: () => setState(() => _onlyUrgent = !_onlyUrgent),
+              ),
+              const SizedBox(width: 8),
+              // Refresh
+              _buildIconButton(
+                icon: Icons.refresh,
+                onTap: () => ref.refresh(nearbyTasksProvider),
+              ),
+              // Reset (only if filters active)
+              if (_selectedCategory != null || _onlyUrgent || _sortBy != 'distance' || _maxDistance != 50.0) ...[
+                const SizedBox(width: 6),
+                _buildIconButton(
+                  icon: Icons.filter_alt_off,
+                  color: Colors.red,
+                  onTap: () => setState(() {
+                    _selectedCategory = null;
+                    _onlyUrgent = false;
+                    _sortBy = 'distance';
+                    _maxDistance = 50.0;
+                  }),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Distance Slider Row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.teal.shade50.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.location_on, color: Colors.teal.shade600, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Max:',
+                  style: TextStyle(color: Colors.teal.shade700, fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Colors.teal.shade400,
+                      inactiveTrackColor: Colors.teal.shade100,
+                      thumbColor: Colors.teal.shade600,
+                      overlayColor: Colors.teal.withOpacity(0.2),
+                      trackHeight: 4,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    ),
+                    child: Slider(
+                      value: _maxDistance,
+                      min: 1,
+                      max: 100,
+                      divisions: 99,
+                      onChanged: (v) => setState(() => _maxDistance = v),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade600,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${_maxDistance.toInt()} km',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildFilterButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    MaterialColor activeColor = Colors.teal,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isActive ? activeColor.shade100 : Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: isActive ? activeColor.shade700 : Colors.grey.shade600),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: isActive ? activeColor.shade700 : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildIconButton({
+    required IconData icon,
+    MaterialColor color = Colors.teal,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color.shade50,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 18, color: color.shade600),
         ),
       ),
     );

@@ -163,7 +163,7 @@ async def get_task_threads(
             created_at=thread.created_at,
             messages=messages_list,
             helper_name=helper_display_name,
-            helper_avatar_url=None,
+            helper_avatar_url=helper.avatar_url if helper else None,
             helper_rating=avg_rating,
             helper_review_count=review_count,
         )
@@ -186,9 +186,46 @@ async def get_messages(
     if current_user.id not in [thread.client_id, thread.helper_id]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    # Get messages with sender info
     query = select(TaskMessage).where(TaskMessage.thread_id == thread_id).order_by(TaskMessage.created_at)
     result = await db.execute(query)
-    return result.scalars().all()
+    messages = result.scalars().all()
+    
+    # Get unique sender IDs and load user info
+    sender_ids = list(set(m.sender_id for m in messages))
+    senders = {}
+    if sender_ids:
+        users_result = await db.execute(
+            select(User).options(selectinload(User.reviews_received)).where(User.id.in_(sender_ids))
+        )
+        for u in users_result.scalars().all():
+            visible_reviews = [r for r in u.reviews_received if r.status == ReviewStatus.VISIBLE.value]
+            avg_rating = sum(r.stars for r in visible_reviews) / len(visible_reviews) if visible_reviews else 0.0
+            senders[u.id] = {
+                "name": u.name,
+                "avatar_url": u.avatar_url,
+                "rating": avg_rating,
+                "review_count": len(visible_reviews)
+            }
+    
+    # Build response with sender details
+    return [
+        schemas.TaskMessageResponse(
+            id=m.id,
+            thread_id=m.thread_id,
+            sender_id=m.sender_id,
+            body=m.body,
+            type=m.type,
+            payload=m.payload,
+            created_at=m.created_at,
+            read_at=m.read_at,
+            sender_name=senders.get(m.sender_id, {}).get("name"),
+            sender_avatar_url=senders.get(m.sender_id, {}).get("avatar_url"),
+            sender_rating=senders.get(m.sender_id, {}).get("rating"),
+            sender_review_count=senders.get(m.sender_id, {}).get("review_count"),
+        )
+        for m in messages
+    ]
 
 @router.post("/threads/{thread_id}/messages", response_model=schemas.TaskMessageResponse)
 async def send_message(

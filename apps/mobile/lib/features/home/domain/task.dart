@@ -162,6 +162,12 @@ class TaskMessage {
   final DateTime createdAt;
   final String type;
   final Map<String, dynamic> payload;
+  
+  // Sender details for display
+  final String? senderName;
+  final String? senderAvatarUrl;
+  final double? senderRating;
+  final int? senderReviewCount;
 
   TaskMessage({
     required this.id,
@@ -170,6 +176,10 @@ class TaskMessage {
     required this.createdAt,
     this.type = 'text',
     this.payload = const {},
+    this.senderName,
+    this.senderAvatarUrl,
+    this.senderRating,
+    this.senderReviewCount,
   });
 
   factory TaskMessage.fromJson(Map<String, dynamic> json) {
@@ -180,6 +190,10 @@ class TaskMessage {
       createdAt: DateTime.parse(json['created_at']),
       type: json['type'] ?? 'text',
       payload: json['payload'] ?? {},
+      senderName: json['sender_name'],
+      senderAvatarUrl: json['sender_avatar_url'],
+      senderRating: (json['sender_rating'] as num?)?.toDouble(),
+      senderReviewCount: json['sender_review_count'],
     );
   }
 }

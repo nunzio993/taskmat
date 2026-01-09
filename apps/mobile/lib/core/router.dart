@@ -28,23 +28,24 @@ part 'router.g.dart';
 
 @riverpod
 GoRouter router(Ref ref) {
-  final authState = ref.watch(authProvider);
+  // Only watch the authentication STATUS (logged in or not), not the entire user object
+  // This prevents rebuilds when updating profile preferences
+  final isLoading = ref.watch(authProvider.select((s) => s.isLoading));
+  final hasError = ref.watch(authProvider.select((s) => s.hasError));
+  final isLoggedIn = ref.watch(authProvider.select((s) => s.valueOrNull != null));
+  final userRole = ref.watch(authProvider.select((s) => s.valueOrNull?.role));
 
   return GoRouter(
     initialLocation: '/',
     redirect: (context, state) {
-      final isLoading = authState.isLoading;
-      final hasError = authState.hasError;
-      final session = authState.valueOrNull;
       final isLoggingIn = state.matchedLocation == '/login';
       final isSplash = state.matchedLocation == '/';
-      final isPublicProfile = state.matchedLocation.startsWith('/u/');
 
       if (isLoading || hasError) return null; // Stay on splash or current
 
       final isRegisterHelper = state.matchedLocation == '/register-helper';
 
-      if (session == null) {
+      if (!isLoggedIn) {
         // Allow public profile without login (optional, if you want public access)
         // For now, require login for all authenticated routes
         return (isLoggingIn || isRegisterHelper) ? null : '/login';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/helper_service.dart';
 import '../../../auth/application/auth_provider.dart';
+import '../../../../core/constants/categories.dart';
 
 class HelperRegistrationScreen extends ConsumerStatefulWidget {
   const HelperRegistrationScreen({super.key});
@@ -14,10 +15,7 @@ class _HelperRegistrationScreenState extends ConsumerState<HelperRegistrationScr
   int _currentStep = 0;
   bool _isLoading = false;
 
-  // Step 1: Skills
-  final List<String> _availableSkills = [
-    'Plumbing', 'Electrical', 'Cleaning', 'Moving', 'Gardening', 'Painting', 'Assembly', 'Babysitting', 'IT Support'
-  ];
+  // Step 1: Skills (using display names from API)
   final List<String> _selectedSkills = [];
   double _tasksPerWeek = 3;
 
@@ -178,15 +176,13 @@ class _HelperRegistrationScreenState extends ConsumerState<HelperRegistrationScr
   }
 
   Widget _buildStepOne() {
-    // Calculate estimated earnings based on selected skills
-    final categoryValues = {
-      'Cleaning': 40.0, 'Moving': 80.0, 'Plumbing': 60.0, 'Electrical': 65.0,
-      'Gardening': 45.0, 'Painting': 50.0, 'Assembly': 35.0, 'Babysitting': 30.0, 'IT Support': 55.0,
-    };
+    // Watch categories from API
+    final categoriesAsync = ref.watch(categoriesProvider);
     
+    // Calculate estimated earnings based on selected skills
     double avgTaskValue = 35.0;
     if (_selectedSkills.isNotEmpty) {
-      avgTaskValue = _selectedSkills.map((s) => categoryValues[s] ?? 35.0).reduce((a, b) => a + b) / _selectedSkills.length;
+      avgTaskValue = _selectedSkills.length * 45.0 / _selectedSkills.length; // Average estimate
     }
     
     return Column(
@@ -218,33 +214,38 @@ class _HelperRegistrationScreenState extends ConsumerState<HelperRegistrationScr
               const SizedBox(height: 8),
               Text('Seleziona una o più categorie. Potrai modificarle in seguito.', style: TextStyle(color: Colors.teal.shade500)),
               const SizedBox(height: 20),
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                children: _availableSkills.map((skill) {
-                  final isSelected = _selectedSkills.contains(skill);
-                  return FilterChip(
-                    label: Text(skill),
-                    selected: isSelected,
-                    selectedColor: Colors.teal.shade100,
-                    backgroundColor: Colors.teal.shade50.withValues(alpha: 0.3),
-                    checkmarkColor: Colors.teal.shade700,
-                    side: BorderSide(color: isSelected ? Colors.teal.shade400 : Colors.teal.shade200),
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.teal.shade800 : Colors.teal.shade600,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
-                    ),
-                    onSelected: (bool selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedSkills.add(skill);
-                        } else {
-                          _selectedSkills.remove(skill);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+              categoriesAsync.when(
+                data: (categories) => Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: categories.map((cat) {
+                    final isSelected = _selectedSkills.contains(cat.displayName);
+                    return FilterChip(
+                      avatar: Icon(getCategoryIcon(cat.slug), size: 18, color: isSelected ? Colors.teal.shade700 : Colors.teal.shade400),
+                      label: Text(cat.displayName),
+                      selected: isSelected,
+                      selectedColor: Colors.teal.shade100,
+                      backgroundColor: Colors.teal.shade50.withValues(alpha: 0.3),
+                      checkmarkColor: Colors.teal.shade700,
+                      side: BorderSide(color: isSelected ? Colors.teal.shade400 : Colors.teal.shade200),
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.teal.shade800 : Colors.teal.shade600,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+                      ),
+                      onSelected: (bool selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedSkills.add(cat.displayName);
+                          } else {
+                            _selectedSkills.remove(cat.displayName);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Text('Errore caricamento categorie: $e', style: TextStyle(color: Colors.red.shade600)),
               ),
             ],
           ),

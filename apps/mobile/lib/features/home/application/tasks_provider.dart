@@ -38,6 +38,9 @@ Future<List<Task>> nearbyTasks(Ref ref) async {
   // Watch refresh trigger for real-time updates
   ref.watch(taskRefreshTriggerProvider);
 
+  // Watch auth to get helper's selected categories
+  final session = ref.watch(authProvider).value;
+
   // Conservative fallback polling every 60 seconds
   final timer = Timer(const Duration(seconds: 60), () => ref.invalidateSelf());
   ref.onDispose(() => timer.cancel());
@@ -50,7 +53,14 @@ Future<List<Task>> nearbyTasks(Ref ref) async {
     'radius_km': 100.0 // Expanded for demo
   });
   
-  return (response.data as List).map((json) => Task.fromJson(json)).toList();
+  var tasks = (response.data as List).map((json) => Task.fromJson(json)).toList();
+  
+  // Filter by helper's selected categories if the user is a helper with categories set
+  if (session != null && session.role == 'helper' && session.categories.isNotEmpty) {
+    tasks = tasks.where((task) => session.categories.contains(task.category)).toList();
+  }
+  
+  return tasks;
 }
 
 @riverpod
@@ -262,15 +272,28 @@ Future<HelperEarnings> helperEarnings(Ref ref) async {
     );
   }
   
-  // TODO: In production, fetch from backend
-  // For now return mock data
-  return const HelperEarnings(
-    todayCents: 4500,      // €45.00
-    weekCents: 32000,      // €320.00
-    pendingPayoutCents: 12500, // €125.00
-    rating: 4.8,
-    reviewCount: 23,
-  );
+  try {
+    final dio = ref.read(apiClientProvider);
+    final response = await dio.get('/helper/stats');
+    final data = response.data;
+    
+    return HelperEarnings(
+      todayCents: data['today_cents'] ?? 0,
+      weekCents: data['week_cents'] ?? 0,
+      pendingPayoutCents: data['pending_payout_cents'] ?? 0,
+      rating: (data['rating'] ?? 0).toDouble(),
+      reviewCount: data['review_count'] ?? 0,
+    );
+  } catch (e) {
+    // Return zeros on error
+    return const HelperEarnings(
+      todayCents: 0,
+      weekCents: 0,
+      pendingPayoutCents: 0,
+      rating: 0,
+      reviewCount: 0,
+    );
+  }
 }
 
 /// Recent chat threads for inbox preview
@@ -301,27 +324,24 @@ Future<List<RecentThread>> helperRecentThreads(Ref ref) async {
   final session = ref.watch(authProvider).value;
   if (session == null || session.role != 'helper') return [];
   
-  // Watch assigned tasks to get threads from active jobs
-  final assignedTasks = await ref.watch(myAssignedTasksProvider.future);
-  
-  // For now, create mock recent threads based on assigned tasks
-  // In production, would fetch from backend /chat/threads/recent
-  final List<RecentThread> threads = [];
-  
-  for (final task in assignedTasks.take(5)) {
-    threads.add(RecentThread(
-      threadId: task.id * 100, // Mock thread ID
-      taskId: task.id,
-      taskTitle: task.title,
-      otherUserName: task.client?.displayName ?? 'Cliente',
-      otherUserAvatar: task.client?.avatarUrl,
-      lastMessage: 'Messaggio di esempio per ${task.title}',
-      lastMessageAt: DateTime.now().subtract(Duration(minutes: task.id * 5)),
-      hasUnread: task.id % 2 == 0, // Mock: every other has unread
-    ));
+  try {
+    final dio = ref.read(apiClientProvider);
+    final response = await dio.get('/helper/my-threads');
+    final List<dynamic> data = response.data;
+    
+    return data.map((json) => RecentThread(
+      threadId: json['thread_id'],
+      taskId: json['task_id'],
+      taskTitle: json['task_title'] ?? 'Task',
+      otherUserName: json['other_user_name'] ?? 'Cliente',
+      otherUserAvatar: json['other_user_avatar'],
+      lastMessage: json['last_message'] ?? 'Nessun messaggio',
+      lastMessageAt: DateTime.parse(json['last_message_at']),
+      hasUnread: json['has_unread'] ?? false,
+    )).toList();
+  } catch (e) {
+    return [];
   }
-  
-  return threads;
 }
 
 /// Check if helper has critical alerts (e.g., Stripe not configured)
