@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import '../application/create_task_controller.dart';
+import 'package:mobile/core/constants/categories.dart';
 
 class CreateTaskScreen extends ConsumerStatefulWidget {
   const CreateTaskScreen({super.key});
@@ -41,10 +42,7 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
   // Access Notes (helper-only)
   final _accessNotesController = TextEditingController();
 
-  final List<String> _categories = [
-    'Generale', 'Pulizie', 'Traslochi', 'Riparazioni', 'Giardinaggio',
-    'Montaggio', 'Consegne', 'Imbiancatura', 'Idraulica', 'Elettricista'
-  ];
+
 
   @override
   void initState() {
@@ -181,12 +179,32 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: _buildDropdown(
-                            label: 'Categoria',
-                            value: _category,
-                            items: _categories,
-                            onChanged: (v) => setState(() => _category = v!),
-                          ),
+                            child: Consumer(
+                              builder: (context, ref, child) {
+                                final categoriesAsync = ref.watch(categoriesProvider);
+                                return categoriesAsync.when(
+                                  data: (categories) {
+                                    final categoryNames = categories.map((c) => c.displayName).toList();
+                                    if (categoryNames.isEmpty) return const SizedBox(); // Handle empty
+                                    
+                                    // Reset if current selection not in list
+                                    if (!categoryNames.contains(_category) && categoryNames.isNotEmpty) {
+                                      // Defer state update to avoid build error, or just let user pick
+                                      // Ideally we set it to first item but safe to leave as is if backend matches
+                                    }
+
+                                    return _buildDropdown(
+                                      label: 'Categoria',
+                                      value: categoryNames.contains(_category) ? _category : categoryNames.first,
+                                      items: categoryNames,
+                                      onChanged: (v) => setState(() => _category = v!),
+                                    );
+                                  },
+                                  loading: () => const LinearProgressIndicator(),
+                                  error: (_, __) => const Text('Errore caricamento'),
+                                );
+                              },
+                            ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(

@@ -19,7 +19,7 @@ class MyApp extends ConsumerWidget {
       title: 'TaskMate',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       routerConfig: routerConfig,
     );
   }

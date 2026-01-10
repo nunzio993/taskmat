@@ -69,7 +69,6 @@ class ShellScreen extends ConsumerWidget {
       NavigationDestination(icon: Icon(Icons.list_alt_outlined), selectedIcon: Icon(Icons.list_alt), label: 'My Tasks'),
       NavigationDestination(icon: Icon(Icons.handshake_outlined), selectedIcon: Icon(Icons.handshake), label: 'Be Helper'),
       NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
-      NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Preferences'),
     ];
   }
 
@@ -92,7 +91,6 @@ class ShellScreen extends ConsumerWidget {
     if (location.startsWith('/my-tasks')) return 1;
     if (location.startsWith('/register-helper')) return 2;
     if (location.startsWith('/profile')) return 3;
-    if (location.startsWith('/preferences')) return 4;
     return 0;
   }
 
@@ -114,7 +112,6 @@ class ShellScreen extends ConsumerWidget {
         case 1: context.go('/my-tasks'); break;
         case 2: context.go('/register-helper'); break;
         case 3: context.go('/profile'); break;
-        case 4: context.go('/preferences'); break;
       }
     }
   }

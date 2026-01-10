@@ -11,6 +11,101 @@ from app.schemas import chat as schemas
 
 router = APIRouter()
 
+@router.get("/my-threads", response_model=List[schemas.TaskThreadResponse])
+async def get_my_threads(
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db)
+):
+    """
+    Get all chat threads for the current user (helper or client).
+    Returns threads where the user is either the helper or the client.
+    """
+    from sqlalchemy import func as sql_func, or_
+    from app.models.models import Review
+    
+    # Find all threads where current user is participant
+    query = select(TaskThread).where(
+        or_(
+            TaskThread.helper_id == current_user.id,
+            TaskThread.client_id == current_user.id
+        )
+    ).options(
+        selectinload(TaskThread.messages),
+        selectinload(TaskThread.task)
+    ).order_by(TaskThread.created_at.desc())
+    
+    result = await db.execute(query)
+    threads = result.scalars().all()
+    
+    # Enrich threads with partner details
+    enriched_threads = []
+    for thread in threads:
+        # Determine the "other" user (partner)
+        if current_user.role == 'helper':
+            partner_id = thread.client_id
+        else:
+            partner_id = thread.helper_id
+            
+        # Fetch partner user
+        partner_result = await db.execute(select(User).where(User.id == partner_id))
+        partner = partner_result.scalars().first()
+        
+        # Calculate rating from visible reviews
+        rating_result = await db.execute(
+            select(
+                sql_func.avg(Review.stars).label("avg_rating"),
+                sql_func.count(Review.id).label("review_count")
+            ).where(
+                Review.to_user_id == thread.helper_id,
+                Review.status == ReviewStatus.VISIBLE.value
+            )
+        )
+        rating_row = rating_result.first()
+        avg_rating = float(rating_row.avg_rating) if rating_row and rating_row.avg_rating else None
+        review_count = rating_row.review_count if rating_row else 0
+        
+        # Format name as "First L."
+        helper_display_name = None
+        helper_result = await db.execute(select(User).where(User.id == thread.helper_id))
+        helper = helper_result.scalars().first()
+        if helper and helper.name:
+            parts = helper.name.strip().split()
+            if len(parts) >= 2:
+                helper_display_name = f"{parts[0].capitalize()} {parts[-1][0].upper()}."
+            else:
+                helper_display_name = parts[0].capitalize() if parts else None
+        
+        # Build messages list
+        messages_list = []
+        for msg in thread.messages:
+            messages_list.append(schemas.TaskMessageResponse(
+                id=msg.id,
+                thread_id=msg.thread_id,
+                sender_id=msg.sender_id,
+                body=msg.body,
+                type=msg.type,
+                payload=msg.payload,
+                created_at=msg.created_at,
+                read_at=msg.read_at,
+            ))
+        
+        # Build complete thread response
+        thread_response = schemas.TaskThreadResponse(
+            id=thread.id,
+            task_id=thread.task_id,
+            client_id=thread.client_id,
+            helper_id=thread.helper_id,
+            created_at=thread.created_at,
+            messages=messages_list,
+            helper_name=helper_display_name,
+            helper_avatar_url=helper.avatar_url if helper else None,
+            helper_rating=avg_rating,
+            helper_review_count=review_count,
+        )
+        enriched_threads.append(thread_response)
+    
+    return enriched_threads
+
 @router.post("/tasks/{task_id}/thread", response_model=schemas.TaskThreadResponse)
 async def get_or_create_thread(
     task_id: int,
