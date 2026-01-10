@@ -35,14 +35,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<int> _resolveThreadId() async {
     // We need the thread ID for the messages provider.
-    // If we are coming from the list, we might have it, but for now we look it up via task+helper.
-    // The backend endpoint POST /tasks/{id}/thread gets or creates one for the CURRENT user.
-    // But here we are the Client, and we want to chat with specific helperId.
-    // We should use 'getTaskThreads' and find the one matching helperId.
+    // Get user to determine role
+    final authState = await ref.read(authProvider.future);
+    final user = authState?.user;
     
-    final threads = await ref.read(taskThreadsProvider(widget.taskId).future);
+    List<dynamic> threads;
+    
+    if (user?.role == 'helper') {
+      // Helpers use /my-threads endpoint
+      threads = await ref.read(myThreadsProvider.future);
+    } else {
+      // Clients use /tasks/{id}/threads endpoint
+      threads = await ref.read(taskThreadsProvider(widget.taskId).future);
+    }
+    
     final thread = threads.firstWhere(
-      (t) => t.helperId == widget.helperId, 
+      (t) => t.helperId == widget.helperId && t.taskId == widget.taskId, 
       orElse: () => throw Exception('Chat thread not found for this helper.')
     );
     return thread.id;

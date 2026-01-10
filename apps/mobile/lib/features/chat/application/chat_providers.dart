@@ -22,6 +22,12 @@ class ChatService {
     return (response.data as List).map((e) => ChatThread.fromJson(e)).toList();
   }
 
+  /// Get all threads for current user (helper or client)
+  Future<List<ChatThread>> getMyThreads() async {
+    final response = await dio.get('/chat/my-threads');
+    return (response.data as List).map((e) => ChatThread.fromJson(e)).toList();
+  }
+
   Future<List<TaskMessage>> getMessages(int threadId) async {
     final response = await dio.get('/chat/threads/$threadId/messages');
     return (response.data as List).map((e) => TaskMessage.fromJson(e)).toList();
@@ -67,6 +73,24 @@ final taskThreadsProvider = FutureProvider.family<List<ChatThread>, int>((ref, t
   
   final service = ref.watch(chatServiceProvider);
   return service.getTaskThreads(taskId);
+});
+
+// For both Helper and Client: Get all their chat threads
+final myThreadsProvider = FutureProvider<List<ChatThread>>((ref) async {
+  // Wait for auth to be ready before making API calls
+  final authState = ref.watch(authProvider);
+  
+  if (authState.isLoading) {
+    await ref.read(authProvider.future);
+  }
+  
+  final user = authState.valueOrNull;
+  if (user == null) {
+    throw Exception('User not authenticated');
+  }
+  
+  final service = ref.watch(chatServiceProvider);
+  return service.getMyThreads();
 });
 
 // For Helper: Get specific thread for a task (Self <-> Client)

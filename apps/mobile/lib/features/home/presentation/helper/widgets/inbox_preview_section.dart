@@ -52,7 +52,7 @@ class InboxPreviewSection extends ConsumerWidget {
     // Build full avatar URL if it's a relative path
     String? avatarUrl = thread.otherUserAvatar;
     if (avatarUrl != null && !avatarUrl.startsWith('http')) {
-      avatarUrl = 'http://localhost:8000$avatarUrl';
+      avatarUrl = 'http://57.131.20.93/api$avatarUrl';
     }
     
     return Material(

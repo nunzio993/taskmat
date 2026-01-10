@@ -46,7 +46,7 @@ Dio apiClient(Ref ref) {
           try {
             print('API_CLIENT: Attempting token refresh...');
             // Use a clean Dio instance for refresh to avoid interceptor loop
-            final refreshDio = Dio(BaseOptions(baseUrl: 'http://localhost:8000'));
+            final refreshDio = Dio(BaseOptions(baseUrl: 'http://57.131.20.93/api'));
             final response = await refreshDio.post('/auth/refresh', data: {
               'refresh_token': refreshToken,
             });
