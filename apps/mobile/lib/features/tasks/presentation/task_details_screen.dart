@@ -661,3 +661,43 @@ class _TaskAction {
 
   _TaskAction({required this.label, required this.onPressed, this.isDestructive = false});
 }
+
+/// A wrapper screen that fetches a task by ID and displays TaskDetailsScreen
+class TaskDetailsScreenById extends ConsumerWidget {
+  final int taskId;
+
+  const TaskDetailsScreenById({super.key, required this.taskId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Try to find the task in various providers
+    final session = ref.watch(authProvider).valueOrNull;
+    
+    Task? task;
+    
+    // Check in assigned tasks (helper)
+    final assignedTasks = ref.watch(myAssignedTasksProvider).valueOrNull;
+    task = assignedTasks?.where((t) => t.id == taskId).firstOrNull;
+    
+    // Check in created tasks (client)
+    if (task == null) {
+      final createdTasks = ref.watch(myCreatedTasksProvider).valueOrNull;
+      task = createdTasks?.where((t) => t.id == taskId).firstOrNull;
+    }
+    
+    // Check in nearby tasks
+    if (task == null) {
+      final nearbyTasks = ref.watch(nearbyTasksProvider).valueOrNull;
+      task = nearbyTasks?.where((t) => t.id == taskId).firstOrNull;
+    }
+
+    if (task == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Task')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return TaskDetailsScreen(task: task);
+  }
+}

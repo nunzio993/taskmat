@@ -112,6 +112,14 @@ GoRouter router(Ref ref) {
             },
           ),
           GoRoute(
+            path: '/task/:taskId',
+            builder: (context, state) {
+               final taskIdStr = state.pathParameters['taskId'];
+               final taskId = int.tryParse(taskIdStr ?? '') ?? 0;
+               return TaskDetailsScreenById(taskId: taskId);
+            },
+          ),
+          GoRoute(
             path: '/create-task',
             builder: (context, state) => const CreateTaskScreen(),
           ),
