@@ -58,11 +58,7 @@ class InboxPreviewSection extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.go('/chat', extra: {
-          'taskId': thread.taskId,
-          'helperId': null, // Helper is the current user
-          'title': thread.taskTitle,
-        }),
+        onTap: () => context.go('/task/${thread.taskId}'),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.teal.shade50))),
