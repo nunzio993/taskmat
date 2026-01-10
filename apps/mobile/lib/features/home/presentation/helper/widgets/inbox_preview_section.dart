@@ -58,7 +58,15 @@ class InboxPreviewSection extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.go('/task/${thread.taskId}'),
+        onTap: () {
+          // Route based on task status
+          if (thread.taskStatus == 'posted') {
+            context.go('/find-work?focusTaskId=${thread.taskId}');
+          } else {
+            // assigned, in_progress, in_confirmation, completed
+            context.go('/my-jobs');
+          }
+        },
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.teal.shade50))),

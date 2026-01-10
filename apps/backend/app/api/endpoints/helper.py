@@ -235,6 +235,7 @@ async def get_helper_threads(
             "thread_id": thread.id,
             "task_id": thread.task_id,
             "task_title": task.title if task else "Task",
+            "task_status": task.status if task else "posted",
             "other_user_name": client.name if client else "Cliente",
             "other_user_avatar": client.avatar_url if client else None,
             "last_message": last_msg.body if last_msg and last_msg.body else "Nessun messaggio",

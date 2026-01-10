@@ -301,6 +301,7 @@ class RecentThread {
   final int threadId;
   final int taskId;
   final String taskTitle;
+  final String taskStatus;
   final String otherUserName;
   final String? otherUserAvatar;
   final String lastMessage;
@@ -311,6 +312,7 @@ class RecentThread {
     required this.threadId,
     required this.taskId,
     required this.taskTitle,
+    required this.taskStatus,
     required this.otherUserName,
     this.otherUserAvatar,
     required this.lastMessage,
@@ -333,6 +335,7 @@ Future<List<RecentThread>> helperRecentThreads(Ref ref) async {
       threadId: json['thread_id'],
       taskId: json['task_id'],
       taskTitle: json['task_title'] ?? 'Task',
+      taskStatus: json['task_status'] ?? 'posted',
       otherUserName: json['other_user_name'] ?? 'Cliente',
       otherUserAvatar: json['other_user_avatar'],
       lastMessage: json['last_message'] ?? 'Nessun messaggio',
