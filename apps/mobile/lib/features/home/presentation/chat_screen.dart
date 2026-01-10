@@ -44,16 +44,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (user?.role == 'helper') {
       // Helpers use /my-threads endpoint
       threads = await ref.read(myThreadsProvider.future);
+      // For helper: find thread by taskId (they ARE the helper in the thread)
+      final thread = threads.firstWhere(
+        (t) => t.taskId == widget.taskId, 
+        orElse: () => throw Exception('Chat thread not found for this task.')
+      );
+      return thread.id;
     } else {
       // Clients use /tasks/{id}/threads endpoint
       threads = await ref.read(taskThreadsProvider(widget.taskId).future);
+      // For client: find thread by helperId
+      final thread = threads.firstWhere(
+        (t) => t.helperId == widget.helperId, 
+        orElse: () => throw Exception('Chat thread not found for this helper.')
+      );
+      return thread.id;
     }
-    
-    final thread = threads.firstWhere(
-      (t) => t.helperId == widget.helperId && t.taskId == widget.taskId, 
-      orElse: () => throw Exception('Chat thread not found for this helper.')
-    );
-    return thread.id;
   }
 
   Future<void> _sendMessage(int threadId) async {
