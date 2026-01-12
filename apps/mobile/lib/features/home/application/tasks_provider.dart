@@ -1,10 +1,10 @@
-
 import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../core/api_client.dart';
 import '../../../core/websocket_service.dart';
+import '../../../core/location_service.dart';
 import '../../auth/application/auth_provider.dart';
 import '../domain/task.dart';
 
@@ -41,16 +41,18 @@ Future<List<Task>> nearbyTasks(Ref ref) async {
   // Watch auth to get helper's selected categories
   final session = ref.watch(authProvider).value;
 
-  // Conservative fallback polling every 60 seconds
-  final timer = Timer(const Duration(seconds: 60), () => ref.invalidateSelf());
+  // Get user's real location (with fallback to Rome if permission denied)
+  final location = await ref.watch(userLocationProvider.future);
+
+  // Polling only when WebSocket is not connected (reduced frequency)
+  final timer = Timer(const Duration(seconds: 120), () => ref.invalidateSelf());
   ref.onDispose(() => timer.cancel());
 
   final dio = ref.read(apiClientProvider);
-  // Default Rome location for MVP
   final response = await dio.get('/tasks/nearby', queryParameters: {
-    'lat': 41.9028,
-    'lon': 12.4964,
-    'radius_km': 100.0 // Expanded for demo
+    'lat': location.latitude,
+    'lon': location.longitude,
+    'radius_km': session?.matchingRadius ?? 50.0,
   });
   
   var tasks = (response.data as List).map((json) => Task.fromJson(json)).toList();
@@ -166,17 +168,19 @@ class SanitizedTask {
 /// Does NOT show: description, client identity, precise location, address
 @riverpod
 Future<List<SanitizedTask>> sanitizedMarketPreview(Ref ref) async {
-  // Refresh every 60 seconds (not too frequent to avoid UI flickering)
-  final timer = Timer(const Duration(seconds: 60), () => ref.invalidateSelf());
+  // Refresh every 2 minutes (not too frequent to avoid UI flickering)
+  final timer = Timer(const Duration(seconds: 120), () => ref.invalidateSelf());
   ref.onDispose(() => timer.cancel());
   
   try {
-    // Use read instead of watch to avoid triggering on every nearbyTasks update
+    // Get user's real location
+    final location = await ref.watch(userLocationProvider.future);
+    
     final dio = ref.read(apiClientProvider);
     final response = await dio.get('/tasks/nearby', queryParameters: {
-      'lat': 41.9028,
-      'lon': 12.4964,
-      'radius_km': 100.0
+      'lat': location.latitude,
+      'lon': location.longitude,
+      'radius_km': 50.0,
     });
     final tasks = (response.data as List).map((json) => Task.fromJson(json)).toList();
     

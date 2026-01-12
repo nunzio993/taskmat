@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../application/tasks_provider.dart';
+import '../../../../../core/api_client.dart';
 
 /// Inbox preview section showing recent message threads
 class InboxPreviewSection extends ConsumerWidget {
@@ -52,7 +53,7 @@ class InboxPreviewSection extends ConsumerWidget {
     // Build full avatar URL if it's a relative path
     String? avatarUrl = thread.otherUserAvatar;
     if (avatarUrl != null && !avatarUrl.startsWith('http')) {
-      avatarUrl = 'http://57.131.20.93/api$avatarUrl';
+      avatarUrl = '$apiBaseUrl$avatarUrl';
     }
     
     return Material(

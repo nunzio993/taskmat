@@ -23,11 +23,12 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
   final _priceController = TextEditingController();
   String _category = 'Generale';
   String _urgency = 'medium';
+  int _minPriceCents = 1000;  // Default €10, updated when category changes
   
   // Location - Map Picker
   LatLng _selectedLocation = const LatLng(41.9028, 12.4964);
   final MapController _mapController = MapController();
-  bool _useMapPicker = true;
+  bool _useMapPicker = false;  // Default to address form (mandatory)
   
   // Location - Address Form
   final _streetController = TextEditingController();
@@ -185,19 +186,31 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
                                 return categoriesAsync.when(
                                   data: (categories) {
                                     final categoryNames = categories.map((c) => c.displayName).toList();
-                                    if (categoryNames.isEmpty) return const SizedBox(); // Handle empty
+                                    if (categoryNames.isEmpty) return const SizedBox();
                                     
-                                    // Reset if current selection not in list
-                                    if (!categoryNames.contains(_category) && categoryNames.isNotEmpty) {
-                                      // Defer state update to avoid build error, or just let user pick
-                                      // Ideally we set it to first item but safe to leave as is if backend matches
-                                    }
+                                    // Get current category object
+                                    final currentCat = categories.firstWhere(
+                                      (c) => c.displayName == _category,
+                                      orElse: () => categories.first,
+                                    );
 
                                     return _buildDropdown(
                                       label: 'Categoria',
                                       value: categoryNames.contains(_category) ? _category : categoryNames.first,
                                       items: categoryNames,
-                                      onChanged: (v) => setState(() => _category = v!),
+                                      onChanged: (v) {
+                                        final selected = categories.firstWhere((c) => c.displayName == v);
+                                        setState(() {
+                                          _category = v!;
+                                          _minPriceCents = selected.minPriceCents;
+                                          // Pre-fill price if empty or below minimum
+                                          final currentPrice = double.tryParse(_priceController.text) ?? 0;
+                                          final minPrice = selected.minPriceCents / 100;
+                                          if (currentPrice < minPrice) {
+                                            _priceController.text = minPrice.toStringAsFixed(0);
+                                          }
+                                        });
+                                      },
                                     );
                                   },
                                   loading: () => const LinearProgressIndicator(),
@@ -221,14 +234,17 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: _priceController,
-                      label: 'Budget',
-                      hint: '0.00',
+                      label: 'Budget (min €${(_minPriceCents / 100).toStringAsFixed(0)})',
+                      hint: (_minPriceCents / 100).toStringAsFixed(2),
                       icon: Icons.euro,
                       prefixText: '€ ',
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Richiesto';
-                        if (double.tryParse(v) == null) return 'Numero non valido';
+                        final price = double.tryParse(v);
+                        if (price == null) return 'Numero non valido';
+                        final minPrice = _minPriceCents / 100;
+                        if (price < minPrice) return 'Min €${minPrice.toStringAsFixed(0)}';
                         return null;
                       },
                     ),
@@ -301,8 +317,10 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
                             ),
                             children: [
                               TileLayer(
-                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                                subdomains: const ['a', 'b', 'c', 'd'],
                                 userAgentPackageName: 'com.taskmate.app',
+                                retinaMode: true,
                               ),
                               MarkerLayer(
                                 markers: [

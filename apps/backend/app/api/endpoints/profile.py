@@ -194,6 +194,8 @@ async def become_helper(
 
 AVATAR_UPLOAD_DIR = "static/avatars"
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 @router.post("/avatar", response_model=UserResponse)
 async def upload_avatar(
@@ -204,10 +206,19 @@ async def upload_avatar(
     """
     Upload a profile avatar image.
     """
+    # Validate content type
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid content type. Allowed: {ALLOWED_CONTENT_TYPES}")
+    
     # Validate file extension
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {ALLOWED_EXTENSIONS}")
+    
+    # Read content and validate size
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail=f"File too large. Max size: {MAX_FILE_SIZE // (1024*1024)}MB")
     
     # Generate unique filename
     unique_filename = f"{current_user.id}_{uuid.uuid4().hex}{ext}"
@@ -227,7 +238,6 @@ async def upload_avatar(
     
     # Save file
     async with aiofiles.open(file_path, "wb") as out_file:
-        content = await file.read()
         await out_file.write(content)
     
     # Update user's avatar_url

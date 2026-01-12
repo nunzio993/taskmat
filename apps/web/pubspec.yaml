@@ -1,0 +1,27 @@
+name: web_app
+description: TaskMat Desktop/Web Frontend
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  go_router: ^14.0.0
+  flutter_riverpod: ^2.4.0
+  riverpod_annotation: ^2.3.0
+  dio: ^5.4.0
+  shared_preferences: ^2.2.0
+  google_fonts: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  build_runner: ^2.4.0
+  riverpod_generator: ^2.3.0
+
+flutter:
+  uses-material-design: true

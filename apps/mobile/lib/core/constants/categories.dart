@@ -6,13 +6,19 @@ import '../../core/api_client.dart';
 class Category {
   final String slug;
   final String displayName;
+  final int minPriceCents;  // Minimum task price for this category
 
-  Category({required this.slug, required this.displayName});
+  Category({
+    required this.slug, 
+    required this.displayName,
+    required this.minPriceCents,
+  });
 
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
       slug: json['slug'],
       displayName: json['display_name'],
+      minPriceCents: json['min_price_cents'] ?? 1000,  // Default €10
     );
   }
 }

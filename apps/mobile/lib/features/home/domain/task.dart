@@ -16,6 +16,17 @@ class Task {
   final int version;
   final List<TaskProof> proofs;
   final List<TaskOffer> offers;
+  
+  // Address fields (null when not visible due to privacy)
+  final String? street;
+  final String? streetNumber;
+  final String? city;
+  final String? postalCode;
+  final String? province;
+  final String? addressExtra;
+  final String? formattedAddress;
+  final String? addressLine;
+  final String? accessNotes;
 
   Task({
     required this.id,
@@ -34,6 +45,16 @@ class Task {
     this.version = 1,
     this.proofs = const [],
     this.offers = const [],
+    // Address fields
+    this.street,
+    this.streetNumber,
+    this.city,
+    this.postalCode,
+    this.province,
+    this.addressExtra,
+    this.formattedAddress,
+    this.addressLine,
+    this.accessNotes,
   });
 
   /// Returns the accepted offer (the assigned helper's offer)
@@ -50,6 +71,24 @@ class Task {
 
   /// Returns the name of the client who posted the task
   String? get clientName => client?.displayName;
+  
+  /// Returns true if the task has exact address visible
+  bool get hasExactAddress => street != null || formattedAddress != null;
+  
+  /// Returns a formatted display address
+  String? get displayAddress {
+    if (formattedAddress != null) return formattedAddress;
+    if (street != null) {
+      final parts = [
+        if (street != null) '$street${streetNumber != null ? " $streetNumber" : ""}',
+        if (city != null) city,
+        if (province != null) province,
+      ];
+      return parts.join(', ');
+    }
+    if (city != null) return city;
+    return null;
+  }
 
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
@@ -69,6 +108,16 @@ class Task {
       version: json['version'] ?? 1,
       proofs: (json['proofs'] as List?)?.map((e) => TaskProof.fromJson(e)).toList() ?? [],
       offers: (json['offers'] as List?)?.map((e) => TaskOffer.fromJson(e)).toList() ?? [],
+      // Address fields
+      street: json['street'],
+      streetNumber: json['street_number'],
+      city: json['city'],
+      postalCode: json['postal_code'],
+      province: json['province'],
+      addressExtra: json['address_extra'],
+      formattedAddress: json['formatted_address'],
+      addressLine: json['address_line'],
+      accessNotes: json['access_notes'],
     );
   }
 }

@@ -273,34 +273,62 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
   }
 
   Widget _buildMapHeader(Task task) {
+    // Show circle if address is not visible (pre-assignment privacy)
+    final showCircle = !task.hasExactAddress;
+    
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
         initialCenter: LatLng(task.lat, task.lon),
-        initialZoom: 15.0,
+        initialZoom: showCircle ? 13.0 : 15.0, // Zoom out more for approximate view
       ),
       children: [
         TileLayer(
-           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+           urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+           subdomains: const ['a', 'b', 'c', 'd'],
+           userAgentPackageName: 'com.taskmate.app',
+           retinaMode: true,
         ),
-        MarkerLayer(
-          markers: [
-            Marker(
-              point: LatLng(task.lat, task.lon),
-              width: 80,
-              height: 80,
-              child: const Icon(Icons.location_on, color: Colors.blue, size: 50),
-            ),
-            if (_currentLocation != null)
+        if (showCircle) ...[
+          // Show approximate area circle (500m radius)
+          CircleLayer(
+            circles: [
+              CircleMarker(
+                point: LatLng(task.lat, task.lon),
+                radius: 500, // 500 meters
+                useRadiusInMeter: true,
+                color: Colors.blue.withOpacity(0.15),
+                borderColor: Colors.blue.withOpacity(0.5),
+                borderStrokeWidth: 2,
+              ),
+            ],
+          ),
+        ] else ...[
+          // Show exact location marker
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: LatLng(task.lat, task.lon),
+                width: 80,
+                height: 80,
+                child: const Icon(Icons.location_on, color: Colors.blue, size: 50),
+              ),
+            ],
+          ),
+        ],
+        // Current user location (always show if available)
+        if (_currentLocation != null)
+          MarkerLayer(
+            markers: [
               Marker(
                 point: _currentLocation!,
                 width: 60,
                 height: 60,
                 child: const Icon(Icons.my_location, color: Colors.green, size: 40),
-              )
-          ],
-        ),
-        // Gradient overlay for text readability if we put text on map
+              ),
+            ],
+          ),
+        // Gradient overlay for text readability
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -309,6 +337,39 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
               colors: [
                 Colors.black.withOpacity(0.3),
                 Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+        // Address info overlay at bottom
+        Positioned(
+          bottom: 8,
+          left: 8,
+          right: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  showCircle ? Icons.near_me : Icons.location_on,
+                  size: 16,
+                  color: Colors.blue,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    showCircle 
+                        ? '${task.city ?? "Zona"} • ~500m radius'
+                        : task.displayAddress ?? 'Indirizzo non disponibile',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ),

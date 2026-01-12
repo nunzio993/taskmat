@@ -73,7 +73,7 @@ class OpportunitiesPreviewSection extends ConsumerWidget {
                     Text(task.title, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.grey.shade800), maxLines: 1, overflow: TextOverflow.ellipsis),
                     Row(
                       children: [
-                        if (task.urgency.toLowerCase() == 'urgent')
+                        if (task.urgency.toLowerCase() == 'high')
                           Container(
                             margin: const EdgeInsets.only(right: 8),
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

@@ -101,7 +101,15 @@ class TaskService:
              raise HTTPException(status_code=400, detail=f"Task not in ASSIGNED state (current: {task.status})")
              
         # Verify helper is the assignee
-        # (omitted for brevity, ideally check TaskAssignment)
+        assignment_result = await db.execute(
+            select(TaskAssignment).where(
+                TaskAssignment.task_id == task_id,
+                TaskAssignment.helper_id == helper_id
+            )
+        )
+        assignment = assignment_result.scalars().first()
+        if not assignment:
+            raise HTTPException(status_code=403, detail="You are not assigned to this task")
         
         task.status = TaskStatus.IN_PROGRESS
         task.started_at = datetime.utcnow()

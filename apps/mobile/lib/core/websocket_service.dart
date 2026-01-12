@@ -35,7 +35,7 @@ class WebSocketService {
   String get _wsUrl {
     // In dev, API is on localhost:8000
     // For production, this should be configured dynamically
-    const apiHost = '57.131.20.93/api';
+    const apiHost = 'localhost:8000';
     return 'ws://$apiHost/ws';
   }
   

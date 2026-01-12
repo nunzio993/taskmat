@@ -274,7 +274,11 @@ class Auth extends _$Auth {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); 
+    // Only remove auth-related keys, preserve app preferences
+    await prefs.remove('auth_token');
+    await prefs.remove('refresh_token');
+    await prefs.remove('user_id');
+    await prefs.remove('user_role');
     state = const AsyncData(null);
   }
 }

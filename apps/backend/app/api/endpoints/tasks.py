@@ -18,67 +18,6 @@ from app.schemas.chat import TaskMessageCreate, TaskMessageResponse, TaskThreadR
 
 router = APIRouter()
 
-print(">>> LOADING TASKS.PY - CODE VERSION 2 - MANUAL HYDRATION FIX <<<")
-
-# DIAGNOSTIC ENDPOINT - must be BEFORE /{task_id} route!
-@router.get("/diag/offers/{task_id}")
-async def diag_offers(task_id: int, db: AsyncSession = Depends(deps.get_db)):
-    """Diagnostic endpoint to test offer query directly."""
-    from sqlalchemy import text
-    
-    # Raw SQL
-    raw_result = await db.execute(text(f"SELECT id, task_id, helper_id, price_cents FROM task_offers WHERE task_id = {task_id}"))
-    raw_offers = raw_result.fetchall()
-    
-    # ORM Query
-    orm_stmt = select(TaskOffer).where(TaskOffer.task_id == task_id)
-    orm_result = await db.execute(orm_stmt)
-    orm_offers = orm_result.scalars().all()
-    
-    return {
-        "code_version": 2,
-        "task_id_requested": task_id,
-        "raw_sql_count": len(raw_offers),
-        "raw_sql_offers": [{"id": r[0], "task_id": r[1], "helper_id": r[2], "price": r[3]} for r in raw_offers],
-        "orm_count": len(orm_offers),
-        "orm_offers": [{"id": o.id, "task_id": o.task_id, "helper_id": o.helper_id, "price": o.price_cents} for o in orm_offers]
-    }
-
-@router.get("/diag/full_task/{task_id}")
-async def diag_full_task(task_id: int, db: AsyncSession = Depends(deps.get_db)):
-    """Diagnostic: simulate full get_task logic without auth."""
-    from sqlalchemy import text
-    
-    # 1. Get task
-    stmt = select(Task).where(Task.id == task_id).options(selectinload(Task.proofs))
-    result = await db.execute(stmt)
-    task = result.scalars().first()
-    if not task:
-        return {"error": "Task not found"}
-    
-    # 2. Manual hydration
-    offer_stmt = select(TaskOffer).where(TaskOffer.task_id == task.id).options(selectinload(TaskOffer.helper).selectinload(User.reviews_received))
-    offer_res = await db.execute(offer_stmt)
-    offers_list = offer_res.scalars().all()
-    
-    # 3. Return raw data
-    raw_result = {
-        "task_id": task.id,
-        "task_title": task.title,
-        "offers_count_from_hydration": len(offers_list),
-        "offers_raw": [{"id": o.id, "task_id": o.task_id, "helper_id": o.helper_id, "price": o.price_cents, "has_helper": o.helper is not None} for o in offers_list],
-    }
-    
-    # 4. Now test _to_task_out
-    try:
-        task_out = _to_task_out(task, explicit_offers=offers_list)
-        raw_result["_to_task_out_offers_count"] = len(task_out.offers)
-        raw_result["_to_task_out_first_offer"] = task_out.offers[0].dict() if task_out.offers else None
-    except Exception as e:
-        raw_result["_to_task_out_error"] = str(e)
-    
-    return raw_result
-
 @router.post("/", response_model=schemas.TaskOut)
 async def create_task(
     task_in: schemas.TaskCreate,
@@ -211,9 +150,6 @@ async def get_created_tasks(
         offer_stmt = select(TaskOffer).where(TaskOffer.task_id == t.id).options(selectinload(TaskOffer.helper).selectinload(User.reviews_received))
         offer_res = await db.execute(offer_stmt)
         offers_list = offer_res.scalars().all()
-        print(f"DEBUG /tasks/created: Task {t.id} has {len(offers_list)} offers")
-        for o in offers_list:
-            print(f"   -> Offer {o.id}: helper={o.helper_id}, price={o.price_cents}, status={o.status}")
         final_list.append(_to_task_out(t, explicit_offers=offers_list))
         
     return final_list
@@ -238,14 +174,6 @@ async def get_assigned_tasks(
     
     result = await db.execute(stmt)
     return [_to_task_out(t) for t in result.scalars().all()]
-
-import logging
-logger = logging.getLogger("uvicorn")
-
-@router.get("/debug_probe")
-async def debug_probe():
-    logger.info("DEBUG_EP: Probe endpoint hit!")
-    return {"status": "alive", "message": "I am the new code with manual hydration!"}
 
 @router.get("/{task_id}", response_model=schemas.TaskOut)
 async def get_task(
@@ -550,26 +478,17 @@ async def select_offer(
     db: AsyncSession = Depends(deps.get_db)
 ):
     # Verify ownership
-    print(f"DEBUG: select_offer called for task {task_id}, offer {offer_id} by user {current_user.id}")
     task_check = await db.get(Task, task_id)
     if not task_check:
-        print(f"DEBUG: Task {task_id} not found")
         raise HTTPException(status_code=404, detail="Task not found")
     if task_check.client_id != current_user.id:
-        print(f"DEBUG: User {current_user.id} not authorized for task {task_id} (owner: {task_check.client_id})")
         raise HTTPException(status_code=403, detail="Not authorized to accept offers for this task")
 
     from app.services.task_service import task_service
-    # Pass db, task_id, offer_id. Service will re-fetch, which is fine (cached in session identity map)
     try:
-        print("DEBUG: Calling task_service.select_offer")
         task = await task_service.select_offer(db, task_id, offer_id)
-        print("DEBUG: task_service.select_offer returned successfully")
         return _to_task_out(task)
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print(f"DEBUG: Error in task_service.select_offer: {e}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
 @router.post("/{task_id}/offers/{offer_id}/reject")

@@ -1,10 +1,7 @@
-
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../features/auth/application/auth_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'api_client.g.dart';
 
@@ -14,7 +11,7 @@ const String apiBaseUrl = 'http://localhost:8000';
 @riverpod
 Dio apiClient(Ref ref) {
   final dio = Dio(BaseOptions(
-    baseUrl: apiBaseUrl, 
+    baseUrl: apiBaseUrl,
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 15),
   ));
@@ -26,24 +23,16 @@ Dio apiClient(Ref ref) {
       if (token != null) {
         options.headers['Authorization'] = 'Bearer $token';
       }
-      return handler.next(options);
+      handler.next(options);
     },
-    onError: (DioException e, handler) async {
+    onError: (e, handler) async {
       if (e.response?.statusCode == 401) {
-        final path = e.requestOptions.path;
-        
-        // Skip refresh attempt for auth endpoints
-        if (path.contains('/auth/')) {
-          return handler.next(e);
-        }
-        
-        // Try to refresh the token
+        // Token expired - try refresh
         final prefs = await SharedPreferences.getInstance();
         final refreshToken = prefs.getString('refresh_token');
         
         if (refreshToken != null) {
           try {
-            // Use a clean Dio instance for refresh to avoid interceptor loop
             final refreshDio = Dio(BaseOptions(baseUrl: apiBaseUrl));
             final response = await refreshDio.post('/auth/refresh', data: {
               'refresh_token': refreshToken,
@@ -52,40 +41,21 @@ Dio apiClient(Ref ref) {
             final newAccessToken = response.data['access_token'];
             await prefs.setString('auth_token', newAccessToken);
             
-            // Retry the original request with new token
+            // Retry original request
             final opts = e.requestOptions;
             opts.headers['Authorization'] = 'Bearer $newAccessToken';
-            
             final retryResponse = await dio.fetch(opts);
             return handler.resolve(retryResponse);
-          } catch (refreshError) {
-            // Refresh failed - clear tokens and logout
+          } catch (_) {
+            // Refresh failed - clear tokens
             await prefs.remove('auth_token');
             await prefs.remove('refresh_token');
-            try {
-              await ref.read(authProvider.notifier).logout();
-            } catch (_) {}
           }
-        } else {
-          // No refresh token - logout
-          await prefs.remove('auth_token');
-          try {
-            await ref.read(authProvider.notifier).logout();
-          } catch (_) {}
         }
       }
-      return handler.next(e);
+      handler.next(e);
     },
   ));
-  
-  // Only add verbose logging in debug mode
-  if (kDebugMode) {
-    dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-    ));
-  }
-  
+
   return dio;
 }
-

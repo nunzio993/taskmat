@@ -198,7 +198,8 @@ class Payment(Base):
     task = relationship("Task", back_populates="payment")
 
 class Message(Base):
-    # Deprecated by TaskThread/TaskMessage
+    # DEPRECATED: Replaced by TaskThread/TaskMessage
+    # TODO: Remove in future migration after verifying no active references
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, index=True)

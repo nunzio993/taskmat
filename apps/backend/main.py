@@ -5,23 +5,34 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.endpoints import tasks, auth, profile, helper, chat, ws, users, reviews, admin, stripe, categories
 from app.core.redis_client import redis_client
 from app.core.database import engine, Base
+import os
 
 app = FastAPI(title="TaskMate API") # Reload trigger
 
+# CORS Configuration - can be overridden via CORS_ORIGINS environment variable
+# Format: comma-separated list e.g. "https://app.taskmate.it,https://admin.taskmate.it"
+default_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+    "http://localhost:3003",  # Admin panel
+    "http://127.0.0.1:3003",
+    "http://localhost",
+    "http://127.0.0.1"
+]
+
+cors_origins_env = os.environ.get("CORS_ORIGINS", "")
+if cors_origins_env:
+    allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    allowed_origins = default_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-        "http://localhost:3002",
-        "http://127.0.0.1:3002",
-        "http://localhost:3003",  # Admin panel
-        "http://127.0.0.1:3003",
-        "http://localhost",
-        "http://127.0.0.1"
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

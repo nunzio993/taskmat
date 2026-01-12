@@ -27,8 +27,10 @@ class TaskLocationMapWidget extends StatelessWidget {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.app',
+                urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+                userAgentPackageName: 'com.taskmate.app',
+                retinaMode: true,
               ),
               MarkerLayer(
                 markers: [
@@ -85,8 +87,10 @@ class TaskLocationMapWidget extends StatelessWidget {
                      ),
                      children: [
                        TileLayer(
-                         urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                         userAgentPackageName: 'com.example.app',
+                         urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                         subdomains: const ['a', 'b', 'c', 'd'],
+                         userAgentPackageName: 'com.taskmate.app',
+                         retinaMode: true,
                        ),
                        MarkerLayer(
                          markers: [

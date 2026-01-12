@@ -57,31 +57,21 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(database.get_
 
 @router.post("/login")
 async def login(user_in: UserLogin, db: AsyncSession = Depends(database.get_db)):
-    print(f"LOGIN: Received request for email={user_in.email}")
-    
     # Authenticate
-    print("LOGIN: Executing database query...")
     result = await db.execute(select(User).where(User.email == user_in.email))
-    print("LOGIN: Database query completed")
-    
     user = result.scalars().first()
-    print(f"LOGIN: User found: {user is not None}")
     
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
     # Use async password verification to avoid blocking
-    print("LOGIN: Starting password verification...")
     password_valid = await security.verify_password_async(user_in.password, user.hashed_password)
-    print(f"LOGIN: Password verification completed, valid={password_valid}")
     
     if not password_valid:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
-    print("LOGIN: Creating tokens...")
     access_token = security.create_access_token(data={"sub": user.email})
     refresh_token = security.create_refresh_token(data={"sub": user.email})
-    print("LOGIN: Tokens created, returning response")
     
     return {
         "access_token": access_token,
