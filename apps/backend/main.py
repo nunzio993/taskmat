@@ -1,13 +1,24 @@
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from app.api.endpoints import tasks, auth, profile, helper, chat, ws, users, reviews, admin, stripe, categories
 from app.core.redis_client import redis_client
 from app.core.database import engine, Base
 import os
 
-app = FastAPI(title="TaskMate API") # Reload trigger
+# SEC-006: Rate limiter setup
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(title="TaskMate API")
+
+# Attach limiter to app state for use in endpoints
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Configuration - can be overridden via CORS_ORIGINS environment variable
 # Format: comma-separated list e.g. "https://app.taskmate.it,https://admin.taskmate.it"

@@ -24,6 +24,12 @@ async def get_user_id_from_token(token: str, db: AsyncSession) -> int | None:
     """Extract user_id from JWT token (which contains email)."""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        # SEC-009: Validate token type to prevent refresh token misuse
+        token_type = payload.get("type")
+        if token_type != "access":
+            return None
+        
         email = payload.get("sub")
         if not email:
             return None

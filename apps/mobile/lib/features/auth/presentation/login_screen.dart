@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -120,7 +121,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
       _firstNameRegError = _firstNameRegCtrl.text.isNotEmpty ? null : 'Richiesto';
       _lastNameRegError = _lastNameRegCtrl.text.isNotEmpty ? null : 'Richiesto';
       _emailRegError = _emailRegCtrl.text.contains('@') ? null : 'Email non valida';
-      _passRegError = _passRegCtrl.text.length >= 6 ? null : 'Min 6 caratteri';
+      _passRegError = _passRegCtrl.text.length >= 8 ? null : 'Min 8 caratteri';
       _confirmPassRegError = _confirmPassRegCtrl.text == _passRegCtrl.text ? null : 'Le password non coincidono';
       _cityError = _cityCtrl.text.isNotEmpty ? null : 'Richiesto';
     });
@@ -358,22 +359,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
 
         const SizedBox(height: 24),
         
-        // Dev tools (only in debug)
-        const Text('Quick Test Login', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 11)),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextButton(
-              onPressed: () => _handleDevLogin('client'),
-              child: Text('Client', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-            ),
-            TextButton(
-              onPressed: () => _handleDevLogin('helper'),
-              child: Text('Helper', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-            ),
-          ],
-        ),
+        // SEC-017: Dev tools only in debug mode
+        if (kDebugMode) ...[
+          const Text('Quick Test Login', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 11)),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: () => _handleDevLogin('client'),
+                child: Text('Client', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              ),
+              TextButton(
+                onPressed: () => _handleDevLogin('helper'),
+                child: Text('Helper', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

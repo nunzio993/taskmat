@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -11,17 +13,22 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
+# SEC-006: Rate limiter for auth endpoints
+limiter = Limiter(key_func=get_remote_address)
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 @router.post("/register")
-async def register(user_in: UserCreate, db: AsyncSession = Depends(database.get_db)):
+@limiter.limit("5/minute")  # SEC-006: Limit registration attempts
+async def register(request: Request, user_in: UserCreate, db: AsyncSession = Depends(database.get_db)):
     # Check if user exists
     result = await db.execute(select(User).where(User.email == user_in.email))
     if result.scalars().first():
+        # SEC-018: Generic error message to prevent email enumeration
         raise HTTPException(
             status_code=400,
-            detail="The user with this email already exists in the system.",
+            detail="Registration failed. Please try again.",
         )
     
     user = User(
@@ -56,7 +63,8 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(database.get_
     )
 
 @router.post("/login")
-async def login(user_in: UserLogin, db: AsyncSession = Depends(database.get_db)):
+@limiter.limit("10/minute")  # SEC-006: Limit login attempts to prevent brute force
+async def login(request: Request, user_in: UserLogin, db: AsyncSession = Depends(database.get_db)):
     # Authenticate
     result = await db.execute(select(User).where(User.email == user_in.email))
     user = result.scalars().first()
@@ -81,12 +89,13 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(database.get_db))
     }
 
 @router.post("/refresh")
-async def refresh_token(request: RefreshTokenRequest, db: AsyncSession = Depends(database.get_db)):
+@limiter.limit("20/minute")  # SEC-006: Limit refresh attempts
+async def refresh_token(request: Request, token_request: RefreshTokenRequest, db: AsyncSession = Depends(database.get_db)):
     """
     Exchange a valid refresh token for a new access token.
     """
     try:
-        payload = security.decode_token(request.refresh_token)
+        payload = security.decode_token(token_request.refresh_token)
         
         # Verify it's a refresh token
         if payload.get("type") != "refresh":
@@ -111,4 +120,3 @@ async def refresh_token(request: RefreshTokenRequest, db: AsyncSession = Depends
         }
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-

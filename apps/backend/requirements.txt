@@ -5,13 +5,6 @@ alembic
 asyncpg
 geoalchemy2
 pydantic-settings
-fastapi
-uvicorn
-sqlalchemy
-alembic
-asyncpg
-geoalchemy2
-pydantic-settings
 redis
 shapely
 passlib[bcrypt]
@@ -22,3 +15,5 @@ aiosqlite
 python-multipart
 websockets
 aiofiles
+slowapi
+stripe

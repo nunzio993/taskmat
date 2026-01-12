@@ -230,6 +230,8 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
   }
 
   Widget _buildDescriptionSection(BuildContext context, Task task, UserSession? session) {
+    final isClientAndPosted = task.status == 'posted' && session?.role == 'client' && session?.id == task.clientId;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -241,6 +243,15 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
+        
+        // Address section - always visible to client, editable only when posted
+        if (session?.role == 'client' && session?.id == task.clientId) ...[
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
+          _buildAddressSection(context, task, isClientAndPosted),
+        ],
+        
         if (task.status == 'posted' && session?.role == 'client') ...[
           const SizedBox(height: 24),
           const Divider(),
@@ -270,6 +281,204 @@ class _TaskDetailsScreenState extends ConsumerState<TaskDetailsScreen> {
         ]
       ],
     );
+  }
+
+  Widget _buildAddressSection(BuildContext context, Task task, bool canEdit) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SectionHeader(title: 'Indirizzo'),
+            if (canEdit)
+              TextButton.icon(
+                onPressed: () => _showEditAddressDialog(context, task),
+                icon: const Icon(Icons.edit, size: 18),
+                label: const Text('Modifica'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.location_on, color: Theme.of(context).colorScheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      task.displayAddress ?? 'Indirizzo non disponibile',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (task.accessNotes != null && task.accessNotes!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, color: Theme.of(context).colorScheme.secondary, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        task.accessNotes!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (!canEdit) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'L\'indirizzo non è modificabile dopo l\'assegnazione',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showEditAddressDialog(BuildContext context, Task task) async {
+    final streetController = TextEditingController(text: task.street ?? '');
+    final streetNumberController = TextEditingController(text: task.streetNumber ?? '');
+    final cityController = TextEditingController(text: task.city ?? '');
+    final postalCodeController = TextEditingController(text: task.postalCode ?? '');
+    final accessNotesController = TextEditingController(text: task.accessNotes ?? '');
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Modifica Indirizzo'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: streetController,
+                decoration: const InputDecoration(
+                  labelText: 'Via/Piazza',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: streetNumberController,
+                decoration: const InputDecoration(
+                  labelText: 'Numero civico',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: cityController,
+                      decoration: const InputDecoration(
+                        labelText: 'Città',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: postalCodeController,
+                      decoration: const InputDecoration(
+                        labelText: 'CAP',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: accessNotesController,
+                decoration: const InputDecoration(
+                  labelText: 'Note di accesso (citofono, piano...)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Salva'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      try {
+        final dio = ref.read(apiClientProvider);
+        await dio.patch('/tasks/${task.id}/address', data: {
+          'street': streetController.text,
+          'street_number': streetNumberController.text,
+          'city': cityController.text,
+          'postal_code': postalCodeController.text,
+          'access_notes': accessNotesController.text,
+        });
+        
+        // Refresh tasks
+        ref.invalidate(myCreatedTasksProvider);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Indirizzo aggiornato!')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Errore: $e')),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildMapHeader(Task task) {

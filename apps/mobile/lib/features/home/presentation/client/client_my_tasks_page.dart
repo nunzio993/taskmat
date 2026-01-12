@@ -16,6 +16,7 @@ import 'widgets/task_review_button.dart';
 import '../../../../core/widgets/proof_image_viewer.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../../core/constants/categories.dart';
+import '../../../../core/api_client.dart';
 
 // Enums for UI State
 enum TaskFilter { active, history }
@@ -560,6 +561,98 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
              
              const SizedBox(height: 24),
              
+             // Address Section
+             Row(
+               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+               children: [
+                 Row(
+                   children: [
+                     Icon(Icons.location_on_outlined, size: 16, color: Colors.teal.shade500),
+                     const SizedBox(width: 6),
+                     Text('Indirizzo', style: TextStyle(fontSize: 12, color: Colors.teal.shade600, fontWeight: FontWeight.w500)),
+                   ],
+                 ),
+                 if (widget.task.status == 'posted')
+                   InkWell(
+                     onTap: () => _showEditAddressDialog(),
+                     child: Container(
+                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                       decoration: BoxDecoration(
+                         color: Colors.teal.shade50,
+                         borderRadius: BorderRadius.circular(6),
+                       ),
+                       child: Row(
+                         mainAxisSize: MainAxisSize.min,
+                         children: [
+                           Icon(Icons.edit, size: 14, color: Colors.teal.shade600),
+                           const SizedBox(width: 4),
+                           Text('Modifica', style: TextStyle(fontSize: 12, color: Colors.teal.shade600, fontWeight: FontWeight.w500)),
+                         ],
+                       ),
+                     ),
+                   ),
+               ],
+             ),
+             const SizedBox(height: 8),
+             Container(
+               padding: const EdgeInsets.all(14),
+               width: double.infinity,
+               decoration: BoxDecoration(
+                 color: Colors.teal.shade50.withValues(alpha: 0.3),
+                 borderRadius: BorderRadius.circular(10),
+                 border: Border.all(color: Colors.teal.shade100),
+               ),
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   Row(
+                     children: [
+                       Icon(Icons.place, size: 18, color: Colors.teal.shade600),
+                       const SizedBox(width: 8),
+                       Expanded(
+                         child: Text(
+                           widget.task.displayAddress ?? 'Indirizzo non disponibile',
+                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.grey.shade800),
+                         ),
+                       ),
+                     ],
+                   ),
+                   if (widget.task.accessNotes != null && widget.task.accessNotes!.isNotEmpty) ...[
+                     const SizedBox(height: 10),
+                     Row(
+                       crossAxisAlignment: CrossAxisAlignment.start,
+                       children: [
+                         Icon(Icons.info_outline, size: 16, color: Colors.teal.shade400),
+                         const SizedBox(width: 8),
+                         Expanded(
+                           child: Text(
+                             widget.task.accessNotes!,
+                             style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                           ),
+                         ),
+                       ],
+                     ),
+                   ],
+                   if (widget.task.status != 'posted') ...[
+                     const SizedBox(height: 10),
+                     Container(
+                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                       decoration: BoxDecoration(
+                         color: Colors.orange.shade50,
+                         borderRadius: BorderRadius.circular(6),
+                       ),
+                       child: Text(
+                         'L\'indirizzo non è modificabile dopo l\'assegnazione',
+                         style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                       ),
+                     ),
+                   ],
+                 ],
+               ),
+             ),
+             
+             const SizedBox(height: 24),
+             
              // Photos Section (Placeholder)
              Row(
                children: [
@@ -685,6 +778,125 @@ class _EditTaskSectionState extends ConsumerState<_EditTaskSection> {
         ],
       ),
     );
+  }
+
+  void _showEditAddressDialog() async {
+    final streetController = TextEditingController(text: widget.task.street ?? '');
+    final streetNumberController = TextEditingController(text: widget.task.streetNumber ?? '');
+    final cityController = TextEditingController(text: widget.task.city ?? '');
+    final postalCodeController = TextEditingController(text: widget.task.postalCode ?? '');
+    final accessNotesController = TextEditingController(text: widget.task.accessNotes ?? '');
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.teal.shade600),
+            const SizedBox(width: 8),
+            const Text('Modifica Indirizzo'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: streetController,
+                decoration: InputDecoration(
+                  labelText: 'Via/Piazza',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: streetNumberController,
+                decoration: InputDecoration(
+                  labelText: 'Numero civico',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: cityController,
+                      decoration: InputDecoration(
+                        labelText: 'Città',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: postalCodeController,
+                      decoration: InputDecoration(
+                        labelText: 'CAP',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: accessNotesController,
+                decoration: InputDecoration(
+                  labelText: 'Note di accesso (citofono, piano...)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Annulla', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.teal.shade600),
+            child: const Text('Salva', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      try {
+        final dio = ref.read(apiClientProvider);
+        await dio.patch('/tasks/${widget.task.id}/address', data: {
+          'street': streetController.text,
+          'street_number': streetNumberController.text,
+          'city': cityController.text,
+          'postal_code': postalCodeController.text,
+          'access_notes': accessNotesController.text,
+        });
+        
+        // Refresh tasks
+        ref.invalidate(myCreatedTasksProvider);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Indirizzo aggiornato!'),
+              backgroundColor: Colors.teal.shade600,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Errore: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
   }
 
   InputDecoration _inputDeco(String label) {

@@ -369,6 +369,75 @@ async def update_task(
     
     return _to_task_out(task)
 
+# --- ADDRESS UPDATE ---
+
+class AddressUpdate(schemas.BaseModel):
+    street: str | None = None
+    street_number: str | None = None
+    city: str | None = None
+    postal_code: str | None = None
+    province: str | None = None
+    address_extra: str | None = None
+    access_notes: str | None = None
+
+@router.patch("/{task_id}/address", response_model=schemas.TaskOut)
+async def update_task_address(
+    task_id: int,
+    address_in: AddressUpdate,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(deps.get_db)
+):
+    """Update task address. Only allowed when task is in POSTED status."""
+    result = await db.execute(select(Task).where(Task.id == task_id).options(selectinload(Task.proofs)))
+    task = result.scalars().first()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    if task.client_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    # Only allow address update when POSTED
+    if task.status != TaskStatus.POSTED:
+        raise HTTPException(status_code=400, detail="Address can only be modified when task is in POSTED state")
+    
+    # Update address fields
+    if address_in.street is not None:
+        task.street = address_in.street
+    if address_in.street_number is not None:
+        task.street_number = address_in.street_number
+    if address_in.city is not None:
+        task.city = address_in.city
+    if address_in.postal_code is not None:
+        task.postal_code = address_in.postal_code
+    if address_in.province is not None:
+        task.province = address_in.province
+    if address_in.address_extra is not None:
+        task.address_extra = address_in.address_extra
+    if address_in.access_notes is not None:
+        task.access_notes = address_in.access_notes
+    
+    # Generate formatted address
+    parts = []
+    if task.street:
+        parts.append(f"{task.street}{' ' + task.street_number if task.street_number else ''}")
+    if task.city:
+        parts.append(task.city)
+    if task.postal_code:
+        parts.append(task.postal_code)
+    if task.province:
+        parts.append(task.province)
+    task.formatted_address = ', '.join(parts) if parts else None
+    
+    # Increment version
+    task.version += 1
+    
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+    
+    return _to_task_out(task)
+
 # --- OFFERS ---
 
 @router.post("/{task_id}/offers", response_model=TaskOfferResponse)

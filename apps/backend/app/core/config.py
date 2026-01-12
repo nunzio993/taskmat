@@ -3,9 +3,10 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     DATABASE_URL: str
     REDIS_URL: str = "redis://redis:6379/0" # Default for docker
-    SECRET_KEY: str = "emergency_key_rotation_2026" # Change in prod
+    SECRET_KEY: str  # REQUIRED - must be set in .env, no default for security
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080 # 7 days
+
     
     # Stripe Configuration
     STRIPE_SECRET_KEY: str = "sk_test_PLACEHOLDER"  # Set in .env

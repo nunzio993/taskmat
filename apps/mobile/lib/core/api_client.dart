@@ -78,10 +78,11 @@ Dio apiClient(Ref ref) {
     },
   ));
   
-  // Only add verbose logging in debug mode
+  // SEC-012: Verbose logging in debug mode
+  // Note: Auth endpoints with passwords will still be logged, consider custom interceptor if needed
   if (kDebugMode) {
     dio.interceptors.add(LogInterceptor(
-      requestBody: true,
+      requestBody: false,  // Don't log request body to avoid password exposure
       responseBody: true,
     ));
   }
